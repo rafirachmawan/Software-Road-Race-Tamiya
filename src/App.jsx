@@ -6,11 +6,28 @@ import RaceManager from "./pages/RaceManager";
 import Hasil from "./pages/Hasil";
 import Laporan from "./pages/Laporan";
 import Display from "./pages/Display";
-import { useState } from "react";
+import Login from "./auth/Login";
+
+import { useState, useEffect } from "react";
 
 export default function App() {
   const [peserta, setPeserta] = useState([]);
+  const [user, setUser] = useState(null);
 
+  // 🔐 Cek session saat pertama buka
+  useEffect(() => {
+    const savedUser = localStorage.getItem("race_user");
+    if (savedUser) {
+      setUser(savedUser);
+    }
+  }, []);
+
+  // 🔒 Kalau belum login → tampil Login
+  if (!user) {
+    return <Login onLogin={setUser} />;
+  }
+
+  // ✅ Kalau sudah login → tampil semua routes
   return (
     <Routes>
       {/* =========================
@@ -22,7 +39,17 @@ export default function App() {
       {/* =========================
           ROUTE DENGAN LAYOUT
       ========================= */}
-      <Route path="/" element={<Layout />}>
+      <Route
+        path="/"
+        element={
+          <Layout
+            onLogout={() => {
+              localStorage.removeItem("race_user");
+              setUser(null);
+            }}
+          />
+        }
+      >
         <Route index element={<Dashboard peserta={peserta} />} />
 
         <Route
@@ -36,7 +63,6 @@ export default function App() {
 
         <Route path="laporan" element={<Laporan peserta={peserta} />} />
 
-        {/* Preview Display (pakai sidebar) */}
         <Route path="display" element={<DisplayWrapper />} />
       </Route>
     </Routes>
@@ -45,11 +71,9 @@ export default function App() {
 
 /* =========================
    WRAPPER PREVIEW
-   (ADA SIDEBAR)
 ========================= */
 function DisplayWrapper() {
   const location = useLocation();
-
   const state = location.state || {};
 
   return (
@@ -64,11 +88,9 @@ function DisplayWrapper() {
 
 /* =========================
    WRAPPER FULLSCREEN
-   (TANPA SIDEBAR)
 ========================= */
 function DisplayFullWrapper() {
   const location = useLocation();
-
   const state = location.state || {};
 
   return (

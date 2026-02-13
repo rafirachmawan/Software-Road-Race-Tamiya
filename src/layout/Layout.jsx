@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useState } from "react";
 
-export default function Layout() {
+export default function Layout({ onLogout }) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -13,6 +13,7 @@ export default function Layout() {
           width: collapsed ? "80px" : "250px",
         }}
       >
+        {/* LOGO */}
         <div style={styles.logoSection}>
           <div style={styles.logoRow}>
             <span style={styles.logoIcon}>🏁</span>
@@ -32,6 +33,7 @@ export default function Layout() {
           </button>
         </div>
 
+        {/* MENU */}
         <div style={styles.menu}>
           <SidebarLink
             to="/"
@@ -70,6 +72,20 @@ export default function Layout() {
             collapsed={collapsed}
           />
         </div>
+
+        {/* LOGOUT SECTION */}
+        <div style={styles.logoutSection}>
+          <button
+            onClick={onLogout}
+            style={{
+              ...styles.logoutButton,
+              justifyContent: collapsed ? "center" : "flex-start",
+            }}
+          >
+            <span>🚪</span>
+            {!collapsed && <span style={{ marginLeft: 10 }}>Logout</span>}
+          </button>
+        </div>
       </div>
 
       {/* ================= MAIN ================= */}
@@ -104,7 +120,7 @@ function SidebarLink({ to, label, icon, collapsed }) {
 const styles = {
   container: {
     display: "flex",
-    minHeight: "100vh", // 🔥 kunci utama
+    minHeight: "100vh",
     fontFamily: "Inter, Arial",
   },
 
@@ -115,7 +131,7 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     transition: "all 0.3s ease",
-    overflowY: "auto", // sidebar bisa scroll kalau panjang
+    overflowY: "auto",
   },
 
   logoSection: {
@@ -158,6 +174,23 @@ const styles = {
     transition: "all 0.2s ease",
   },
 
+  logoutSection: {
+    marginTop: "auto",
+    paddingTop: "20px",
+  },
+
+  logoutButton: {
+    width: "100%",
+    padding: "12px",
+    backgroundColor: "#ef4444",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+  },
+
   main: {
     flex: 1,
     display: "flex",
@@ -167,7 +200,7 @@ const styles = {
 
   content: {
     flex: 1,
-    overflowY: "auto", // ✅ hanya ini yang scroll
+    overflowY: "auto",
     padding: "40px",
   },
 };

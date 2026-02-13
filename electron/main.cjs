@@ -1,8 +1,44 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
+const Database = require("better-sqlite3");
 
 let mainWindow;
 let displayWindow;
+let db;
+
+/* =========================
+   CREATE DATABASE
+========================= */
+function initDatabase() {
+  const dbPath = path.join(app.getPath("userData"), "race.db");
+  db = new Database(dbPath);
+
+  // USERS TABLE
+  db.prepare(
+    `
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE,
+      password TEXT,
+      role TEXT
+    )
+  `,
+  ).run();
+
+  // DEFAULT ADMIN
+  const admin = db
+    .prepare("SELECT * FROM users WHERE username = ?")
+    .get("admin");
+
+  if (!admin) {
+    db.prepare(
+      `
+      INSERT INTO users (username, password, role)
+      VALUES (?, ?, ?)
+    `,
+    ).run("admin", "123456", "admin");
+  }
+}
 
 /* =========================
    CREATE MAIN WINDOW
@@ -12,8 +48,9 @@ function createMainWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
     },
   });
 
@@ -29,12 +66,12 @@ function createDisplayWindow() {
     autoHideMenuBar: true,
     backgroundColor: "#0f172a",
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
     },
   });
 
-  // 🔥 Penting: arahkan ke route TANPA Layout
   displayWindow.loadURL("http://localhost:5173/#/display-full");
 
   displayWindow.on("closed", () => {
@@ -46,7 +83,25 @@ function createDisplayWindow() {
    APP READY
 ========================= */
 app.whenReady().then(() => {
+  initDatabase();
   createMainWindow();
+});
+
+/* =========================
+   LOGIN IPC
+========================= */
+ipcMain.handle("login", (event, { username, password }) => {
+  const user = db
+    .prepare(
+      `
+    SELECT id, username, role
+    FROM users
+    WHERE username = ? AND password = ?
+  `,
+    )
+    .get(username, password);
+
+  return user || null;
 });
 
 /* =========================
