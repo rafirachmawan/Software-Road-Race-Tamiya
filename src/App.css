@@ -1,0 +1,39 @@
+/* ================= GLOBAL RESET ================= */
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* 🔥 cegah double scroll */
+  font-family: Inter, Arial, sans-serif;
+  background-color: #f3f4f6; /* samakan dengan layout main */
+}
+
+/* ================= BOX SIZING ================= */
+
+* {
+  box-sizing: border-box;
+}
+
+/* ================= OPTIONAL SCROLLBAR STYLING ================= */
+
+/* Scrollbar hanya muncul di content (karena body sudah hidden) */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
