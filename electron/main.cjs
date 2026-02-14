@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, session } = require("electron");
 const path = require("path");
 const Database = require("better-sqlite3");
 
@@ -15,7 +15,7 @@ function initDatabase() {
 
   db.pragma("foreign_keys = ON");
 
-  /* ================= USERS ================= */
+  /* USERS */
   db.prepare(
     `
     CREATE TABLE IF NOT EXISTS users (
@@ -27,7 +27,7 @@ function initDatabase() {
   `,
   ).run();
 
-  /* ================= TEAMS ================= */
+  /* TEAMS */
   db.prepare(
     `
     CREATE TABLE IF NOT EXISTS teams (
@@ -37,7 +37,7 @@ function initDatabase() {
   `,
   ).run();
 
-  /* ================= PLAYERS ================= */
+  /* PLAYERS */
   db.prepare(
     `
     CREATE TABLE IF NOT EXISTS players (
@@ -50,7 +50,32 @@ function initDatabase() {
   `,
   ).run();
 
-  /* ================= DEFAULT ADMIN ================= */
+  /* ROUNDS */
+  db.prepare(
+    `
+    CREATE TABLE IF NOT EXISTS rounds (
+      id INTEGER PRIMARY KEY,
+      nama TEXT
+    )
+  `,
+  ).run();
+
+  /* ROUND SLOTS */
+  db.prepare(
+    `
+    CREATE TABLE IF NOT EXISTS round_slots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      roundId INTEGER,
+      rowIndex INTEGER,
+      columnKey TEXT,
+      playerName TEXT,
+      UNIQUE(roundId, rowIndex, columnKey),
+      FOREIGN KEY(roundId) REFERENCES rounds(id) ON DELETE CASCADE
+    )
+  `,
+  ).run();
+
+  /* DEFAULT ADMIN */
   const admin = db
     .prepare("SELECT * FROM users WHERE username = ?")
     .get("admin");
@@ -66,7 +91,7 @@ function initDatabase() {
 }
 
 /* =========================
-   CREATE MAIN WINDOW
+   WINDOW
 ========================= */
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -80,11 +105,12 @@ function createMainWindow() {
   });
 
   mainWindow.loadURL("http://localhost:5173");
+
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+  });
 }
 
-/* =========================
-   CREATE DISPLAY WINDOW
-========================= */
 function createDisplayWindow() {
   displayWindow = new BrowserWindow({
     fullscreen: true,
@@ -109,6 +135,14 @@ function createDisplayWindow() {
 ========================= */
 app.whenReady().then(() => {
   initDatabase();
+
+  session.defaultSession.setPermissionRequestHandler(
+    (webContents, permission, callback) => {
+      if (permission === "media") callback(true);
+      else callback(false);
+    },
+  );
+
   createMainWindow();
 });
 
@@ -116,21 +150,21 @@ app.whenReady().then(() => {
    LOGIN
 ========================= */
 ipcMain.handle("login", (event, { username, password }) => {
-  const user = db
-    .prepare(
-      `
+  return (
+    db
+      .prepare(
+        `
       SELECT id, username, role
       FROM users
       WHERE username = ? AND password = ?
-  `,
-    )
-    .get(username, password);
-
-  return user || null;
+    `,
+      )
+      .get(username, password) || null
+  );
 });
 
 /* =========================
-   GET TEAMS + PLAYERS
+   TEAMS + PLAYERS
 ========================= */
 ipcMain.handle("get-teams", () => {
   const teams = db.prepare("SELECT * FROM teams").all();
@@ -140,86 +174,101 @@ ipcMain.handle("get-teams", () => {
       .prepare("SELECT * FROM players WHERE teamId = ?")
       .all(team.id);
 
-    return {
-      ...team,
-      pemain,
-    };
+    return { ...team, pemain };
   });
 });
 
-/* =========================
-   ADD TEAM
-========================= */
 ipcMain.handle("add-team", (event, namaTim) => {
   try {
     db.prepare("INSERT INTO teams (namaTim) VALUES (?)").run(namaTim);
     return { success: true };
-  } catch (err) {
+  } catch {
     return { success: false, message: "Nama tim sudah ada" };
   }
 });
 
-/* =========================
-   ADD PLAYER + GENERATE BARCODE
-========================= */
 ipcMain.handle("add-player", (event, { teamId, nama }) => {
   try {
     const result = db
       .prepare(
         `
-        INSERT INTO players (teamId, nama)
-        VALUES (?, ?)
+      INSERT INTO players (teamId, nama)
+      VALUES (?, ?)
     `,
       )
       .run(teamId, nama);
 
     const playerId = result.lastInsertRowid;
-
-    // 🔥 barcode hanya sebagai ID unik
     const barcode = `RC-${String(playerId).padStart(5, "0")}`;
 
     db.prepare(
       `
-        UPDATE players
-        SET barcode = ?
-        WHERE id = ?
+      UPDATE players SET barcode = ? WHERE id = ?
     `,
     ).run(barcode, playerId);
 
-    // Ambil data lengkap
     const player = db
       .prepare(
         `
-        SELECT players.*, teams.namaTim
-        FROM players
-        JOIN teams ON players.teamId = teams.id
-        WHERE players.id = ?
+      SELECT players.*, teams.namaTim
+      FROM players
+      JOIN teams ON players.teamId = teams.id
+      WHERE players.id = ?
     `,
       )
       .get(playerId);
 
-    return {
-      success: true,
-      player,
-    };
-  } catch (err) {
-    console.error(err);
+    return { success: true, player };
+  } catch {
     return { success: false };
   }
 });
 
 /* =========================
-   UPDATE PLAYER NAME
+   FIND PLAYER
 ========================= */
-ipcMain.handle("update-player", (event, { id, nama }) => {
+ipcMain.handle("find-player", (event, barcode) => {
+  return (
+    db
+      .prepare(
+        `
+      SELECT players.*, teams.namaTim
+      FROM players
+      JOIN teams ON players.teamId = teams.id
+      WHERE players.barcode = ?
+    `,
+      )
+      .get(barcode.trim()) || null
+  );
+});
+
+/* =========================
+   SAVE SLOT (PERSIST)
+========================= */
+ipcMain.handle("save-slot", (event, data) => {
+  const { roundId, rowIndex, columnKey, playerName } = data;
+
   try {
+    // pastikan round ada
+    const existingRound = db
+      .prepare("SELECT * FROM rounds WHERE id = ?")
+      .get(roundId);
+
+    if (!existingRound) {
+      db.prepare("INSERT INTO rounds (id, nama) VALUES (?, ?)").run(
+        roundId,
+        `Round ${roundId}`,
+      );
+    }
+
+    // insert / replace supaya tidak duplicate
     db.prepare(
       `
-        UPDATE players
-        SET nama = ?
-        WHERE id = ?
+      INSERT OR REPLACE INTO round_slots
+      (roundId, rowIndex, columnKey, playerName)
+      VALUES (?, ?, ?, ?)
     `,
-    ).run(nama, id);
+    ).run(roundId, rowIndex, columnKey, playerName);
 
     return { success: true };
   } catch (err) {
@@ -229,49 +278,36 @@ ipcMain.handle("update-player", (event, { id, nama }) => {
 });
 
 /* =========================
-   FIND PLAYER BY BARCODE (SCAN)
+   LOAD ROUND DATA
 ========================= */
-ipcMain.handle("find-player", (event, barcode) => {
-  try {
-    const player = db
-      .prepare(
-        `
-        SELECT players.*, teams.namaTim
-        FROM players
-        JOIN teams ON players.teamId = teams.id
-        WHERE players.barcode = ?
-    `,
-      )
-      .get(barcode.trim()); // 🔥 trim supaya aman dari spasi scanner
-
-    return player || null;
-  } catch (err) {
-    console.error(err);
-    return null;
-  }
+ipcMain.handle("get-round-data", (event, roundId) => {
+  return db
+    .prepare(
+      `
+    SELECT rowIndex, columnKey, playerName
+    FROM round_slots
+    WHERE roundId = ?
+  `,
+    )
+    .all(roundId);
 });
 
 /* =========================
    DELETE PLAYER
 ========================= */
-ipcMain.handle("delete-player", (event, pemainId) => {
-  db.prepare("DELETE FROM players WHERE id = ?").run(pemainId);
+ipcMain.handle("delete-player", (event, id) => {
+  db.prepare("DELETE FROM players WHERE id = ?").run(id);
   return { success: true };
 });
 
 /* =========================
-   DISPLAY CONTROL
+   DISPLAY
 ========================= */
 ipcMain.on("open-display", () => {
-  if (displayWindow) {
-    displayWindow.focus();
-    return;
-  }
+  if (displayWindow) return displayWindow.focus();
   createDisplayWindow();
 });
 
 ipcMain.on("close-display", () => {
-  if (displayWindow) {
-    displayWindow.close();
-  }
+  if (displayWindow) displayWindow.close();
 });

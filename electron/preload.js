@@ -16,6 +16,20 @@ contextBridge.exposeInMainWorld("api", {
   /* ================= SCAN ================= */
   findPlayer: (barcode) => ipcRenderer.invoke("find-player", barcode),
 
+  /* ================= ROUND / SLOT ================= */
+
+  // Simpan 1 slot hasil scan
+  saveSlot: (data) => ipcRenderer.invoke("save-slot", data),
+
+  // Ambil data per round (untuk load saat refresh)
+  getRoundData: (roundId) => ipcRenderer.invoke("get-round-data", roundId),
+
+  // Ambil semua round (opsional future ready)
+  getAllRounds: () => ipcRenderer.invoke("get-all-rounds"),
+
+  // Reset / hapus data round tertentu
+  resetRound: (roundId) => ipcRenderer.invoke("reset-round", roundId),
+
   /* ================= DISPLAY ================= */
   openDisplay: () => ipcRenderer.send("open-display"),
   closeDisplay: () => ipcRenderer.send("close-display"),

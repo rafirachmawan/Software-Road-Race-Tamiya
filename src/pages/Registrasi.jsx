@@ -23,14 +23,17 @@ export default function Registrasi() {
     setTeams(data);
   };
 
-  /* ================= RENDER BARCODE ================= */
+  /* ================= RENDER BARCODE (FIXED) ================= */
   useEffect(() => {
     if (selectedPlayer && barcodeRef.current) {
       JsBarcode(barcodeRef.current, selectedPlayer.barcode, {
         format: "CODE128",
-        width: 2,
-        height: 80,
+        width: 3, // 🔥 lebih tebal
+        height: 120, // 🔥 lebih tinggi
         displayValue: true,
+        fontSize: 22,
+        margin: 20, // 🔥 penting untuk scanner
+        background: "#ffffff",
       });
     }
   }, [selectedPlayer]);
@@ -120,12 +123,16 @@ export default function Registrasi() {
     const img = new Image();
     img.onload = function () {
       const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
+
+      // 🔥 naikkan resolusi supaya hasil PNG tajam
+      canvas.width = img.width * 2;
+      canvas.height = img.height * 2;
 
       const ctx = canvas.getContext("2d");
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.scale(2, 2);
       ctx.drawImage(img, 0, 0);
 
       const pngFile = canvas.toDataURL("image/png");

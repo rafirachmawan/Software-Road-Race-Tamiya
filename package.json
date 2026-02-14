@@ -13,6 +13,7 @@
     "start": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npm run electron\""
   },
   "dependencies": {
+    "@zxing/browser": "^0.1.5",
     "better-sqlite3": "^12.6.2",
     "file-saver": "^2.0.5",
     "jsbarcode": "^3.12.3",
