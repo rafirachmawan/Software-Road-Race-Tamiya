@@ -4,11 +4,10 @@ import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
-/* ================= GENERATE COLUMN DINAMIS ================= */
+/* ================= GENERATE COLUMN ================= */
 const generateColumns = (endLetter = "I") => {
   const start = "A".charCodeAt(0);
   const end = endLetter.charCodeAt(0);
-
   const cols = [];
   for (let i = start; i <= end; i++) {
     cols.push(String.fromCharCode(i));
@@ -16,7 +15,6 @@ const generateColumns = (endLetter = "I") => {
   return cols;
 };
 
-/* ================= GENERATE A-Z FOR DROPDOWN ================= */
 const alphabet = Array.from({ length: 26 }, (_, i) =>
   String.fromCharCode(65 + i),
 );
@@ -62,7 +60,6 @@ export default function Hasil() {
         }
 
         newGrid[rowIndex][columnKey] = nama;
-
         return { ...r, grid: newGrid };
       }
       return r;
@@ -80,7 +77,7 @@ export default function Hasil() {
     setCurrentIndex(0);
   };
 
-  /* ================= EXPORT EXCEL ================= */
+  /* ================= EXPORT ================= */
   const exportExcel = () => {
     const data = roundAktif.grid.map((row) => {
       const rowData = { NO: row.no };
@@ -106,7 +103,6 @@ export default function Hasil() {
     saveAs(blob, `${roundAktif.nama}.xlsx`);
   };
 
-  /* ================= EXPORT PDF ================= */
   const exportPDF = () => {
     const doc = new jsPDF("landscape");
 
@@ -122,27 +118,22 @@ export default function Hasil() {
       head: [tableColumn],
       body: tableRows,
       startY: 20,
+      styles: { fontSize: 8 },
     });
 
     doc.save(`${roundAktif.nama}.pdf`);
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "25px" }}>
-      {/* HEADER + EXPORT BUTTON */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
+    <div style={pageWrapper}>
+      {/* HEADER */}
+      <div style={headerWrapper}>
         <div>
-          <h1>🏁 ROUND MANAGEMENT</h1>
-          <p>Input Nama untuk isi slot otomatis (Tekan Enter)</p>
+          <h1 style={{ margin: 0 }}>🏁 ROUND MANAGEMENT</h1>
+          <p style={subText}>Input nama lalu tekan Enter untuk isi otomatis</p>
         </div>
 
-        <div style={{ display: "flex", gap: "10px" }}>
+        <div style={exportGroup}>
           <button style={exportBlue} onClick={exportPDF}>
             Export PDF
           </button>
@@ -152,94 +143,62 @@ export default function Hasil() {
         </div>
       </div>
 
-      {/* ===== CUSTOM COLUMN ===== */}
-      <div>
-        <label>Max Kolom (A - Z)</label>
-        <select
-          value={maxColumn}
-          onChange={(e) => setMaxColumn(e.target.value)}
-          style={{ marginLeft: "10px", padding: "6px" }}
-        >
-          {alphabet.map((letter) => (
-            <option key={letter} value={letter}>
-              {letter}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* ROUND TAB */}
-      <div style={{ display: "flex", gap: "10px" }}>
-        {rounds.map((r) => (
-          <button
-            key={r.id}
-            onClick={() => {
-              setSelectedRound(r.id);
-              setCurrentIndex(0);
-            }}
-            style={{
-              padding: "8px 16px",
-              borderRadius: "8px",
-              border: "none",
-              cursor: "pointer",
-              background: selectedRound === r.id ? "#0f172a" : "#e5e7eb",
-              color: selectedRound === r.id ? "white" : "black",
-            }}
+      {/* CONTROL BAR */}
+      <div style={controlCard}>
+        <div style={controlLeft}>
+          <label style={labelStyle}>Max Kolom</label>
+          <select
+            value={maxColumn}
+            onChange={(e) => setMaxColumn(e.target.value)}
+            style={selectStyle}
           >
-            {r.nama}
-          </button>
-        ))}
+            {alphabet.map((letter) => (
+              <option key={letter} value={letter}>
+                {letter}
+              </option>
+            ))}
+          </select>
+        </div>
 
-        <button
-          onClick={tambahRound}
-          style={{
-            padding: "8px 16px",
-            borderRadius: "8px",
-            border: "1px dashed #0f172a",
-            cursor: "pointer",
-            background: "white",
-          }}
-        >
-          + Tambah Round
-        </button>
+        <div style={roundTabWrapper}>
+          {rounds.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => {
+                setSelectedRound(r.id);
+                setCurrentIndex(0);
+              }}
+              style={{
+                ...roundBtn,
+                background: selectedRound === r.id ? "#0f172a" : "#f1f5f9",
+                color: selectedRound === r.id ? "white" : "#0f172a",
+              }}
+            >
+              {r.nama}
+            </button>
+          ))}
+
+          <button style={addRoundBtn} onClick={tambahRound}>
+            + Tambah
+          </button>
+        </div>
       </div>
 
       {/* INPUT */}
-      <div
-        style={{
-          background: "white",
-          padding: "20px",
-          borderRadius: "12px",
-          boxShadow: "0 5px 15px rgba(0,0,0,0.08)",
-        }}
-      >
+      <div style={inputCard}>
         <input
           autoFocus
-          placeholder="Ketik nama lalu tekan Enter..."
+          placeholder="Ketik nama peserta..."
           value={inputNama}
           onChange={(e) => setInputNama(e.target.value)}
           onKeyDown={handleInput}
-          style={{
-            padding: "14px",
-            width: "100%",
-            fontSize: "16px",
-            borderRadius: "8px",
-            border: "1px solid #d1d5db",
-          }}
+          style={inputStyle}
         />
       </div>
 
-      {/* GRID */}
-      <div
-        style={{
-          background: "white",
-          padding: "20px",
-          borderRadius: "12px",
-          boxShadow: "0 5px 15px rgba(0,0,0,0.08)",
-          overflowX: "auto",
-        }}
-      >
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      {/* TABLE */}
+      <div style={tableCard}>
+        <table style={tableStyle}>
           <thead>
             <tr>
               <th style={thStyle}>NO</th>
@@ -268,21 +227,34 @@ export default function Hasil() {
   );
 }
 
-/* STYLES */
-const thStyle = {
-  padding: "10px",
-  background: "#e5e7eb",
-  border: "1px solid #d1d5db",
+/* ================= STYLES ================= */
+
+const pageWrapper = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "30px",
 };
 
-const tdStyle = {
-  padding: "8px",
-  border: "1px solid #e5e7eb",
-  textAlign: "center",
+const headerWrapper = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "15px",
+};
+
+const subText = {
+  color: "#64748b",
+  marginTop: "5px",
+};
+
+const exportGroup = {
+  display: "flex",
+  gap: "10px",
 };
 
 const exportBlue = {
-  padding: "8px 16px",
+  padding: "10px 18px",
   backgroundColor: "#2563eb",
   color: "white",
   border: "none",
@@ -291,10 +263,99 @@ const exportBlue = {
 };
 
 const exportGreen = {
-  padding: "8px 16px",
+  padding: "10px 18px",
   backgroundColor: "#16a34a",
   color: "white",
   border: "none",
   borderRadius: "8px",
   cursor: "pointer",
+};
+
+const controlCard = {
+  background: "white",
+  padding: "20px",
+  borderRadius: "14px",
+  boxShadow: "0 5px 20px rgba(0,0,0,0.05)",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "15px",
+};
+
+const controlLeft = {
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+};
+
+const labelStyle = {
+  fontWeight: "600",
+};
+
+const selectStyle = {
+  padding: "8px",
+  borderRadius: "8px",
+  border: "1px solid #d1d5db",
+};
+
+const roundTabWrapper = {
+  display: "flex",
+  gap: "10px",
+  flexWrap: "wrap",
+};
+
+const roundBtn = {
+  padding: "8px 16px",
+  borderRadius: "8px",
+  border: "none",
+  cursor: "pointer",
+};
+
+const addRoundBtn = {
+  padding: "8px 16px",
+  borderRadius: "8px",
+  border: "1px dashed #0f172a",
+  background: "white",
+  cursor: "pointer",
+};
+
+const inputCard = {
+  background: "white",
+  padding: "20px",
+  borderRadius: "14px",
+  boxShadow: "0 5px 20px rgba(0,0,0,0.05)",
+};
+
+const inputStyle = {
+  width: "100%",
+  padding: "14px",
+  fontSize: "16px",
+  borderRadius: "10px",
+  border: "1px solid #d1d5db",
+};
+
+const tableCard = {
+  background: "white",
+  padding: "20px",
+  borderRadius: "14px",
+  boxShadow: "0 5px 20px rgba(0,0,0,0.05)",
+  overflowX: "auto",
+};
+
+const tableStyle = {
+  width: "100%",
+  borderCollapse: "collapse",
+};
+
+const thStyle = {
+  padding: "12px",
+  background: "#f1f5f9",
+  border: "1px solid #e2e8f0",
+};
+
+const tdStyle = {
+  padding: "10px",
+  border: "1px solid #f1f5f9",
+  textAlign: "center",
 };
