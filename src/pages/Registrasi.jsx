@@ -1,160 +1,154 @@
 import { useState } from "react";
 
-export default function Registrasi({ peserta, setPeserta }) {
-  const [nama, setNama] = useState("");
+export default function Registrasi({ teams, setTeams }) {
   const [namaTim, setNamaTim] = useState("");
-  const [search, setSearch] = useState("");
+  const [selectedTeam, setSelectedTeam] = useState("");
+  const [namaPemain, setNamaPemain] = useState("");
 
-  const itemsPerPage = 10;
-  const [currentPage, setCurrentPage] = useState(1);
+  /* ================= TAMBAH TIM ================= */
+  const tambahTim = () => {
+    if (!namaTim) return alert("Nama tim wajib diisi");
 
-  const tambahPeserta = () => {
-    if (!nama || !namaTim) return alert("Nama dan Tim wajib diisi");
+    const timSudahAda = teams.find(
+      (t) => t.namaTim.toLowerCase() === namaTim.toLowerCase(),
+    );
 
-    const newPeserta = {
+    if (timSudahAda) return alert("Nama tim sudah terdaftar!");
+
+    const newTeam = {
       id: Date.now(),
-      nama,
-      tim: namaTim,
+      namaTim,
+      pemain: [],
     };
 
-    setPeserta([...peserta, newPeserta]);
-    setNama("");
+    setTeams([...teams, newTeam]);
     setNamaTim("");
   };
 
-  const hapusPeserta = (id) => {
-    setPeserta(peserta.filter((p) => p.id !== id));
+  /* ================= TAMBAH PEMAIN ================= */
+  const tambahPemain = () => {
+    if (!selectedTeam || !namaPemain)
+      return alert("Pilih tim dan isi nama pemain");
+
+    const updated = teams.map((t) => {
+      if (t.id === Number(selectedTeam)) {
+        return {
+          ...t,
+          pemain: [...t.pemain, { id: Date.now(), nama: namaPemain }],
+        };
+      }
+      return t;
+    });
+
+    setTeams(updated);
+    setNamaPemain("");
   };
 
-  const filtered = peserta.filter((p) =>
-    p.nama.toLowerCase().includes(search.toLowerCase()),
-  );
+  /* ================= HAPUS PEMAIN ================= */
+  const hapusPemain = (teamId, pemainId) => {
+    const updated = teams.map((t) => {
+      if (t.id === teamId) {
+        return {
+          ...t,
+          pemain: t.pemain.filter((p) => p.id !== pemainId),
+        };
+      }
+      return t;
+    });
 
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
-
-  const displayed = filtered.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  );
+    setTeams(updated);
+  };
 
   return (
-    <div style={pageStyle}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "30px" }}>
       {/* ================= HEADER ================= */}
-      <div style={headerStyle}>
-        <div>
-          <h1 style={{ margin: 0 }}>📝 Registrasi Peserta</h1>
-          <p style={subText}>
-            Total Peserta Terdaftar: <b>{peserta.length}</b>
-          </p>
-        </div>
+      <div>
+        <h1>🏁 Registrasi Tim & Pemain</h1>
+        <p>
+          Total Tim Terdaftar: <b>{teams.length}</b>
+        </p>
       </div>
 
-      {/* ================= FORM ================= */}
-      <div style={panelStyle}>
-        <h3>Tambah Peserta Baru</h3>
-
-        <div style={formStyle}>
-          <input
-            placeholder="Nama Peserta"
-            value={nama}
-            onChange={(e) => setNama(e.target.value)}
-            style={inputStyle}
-          />
-
+      {/* ================= FORM TAMBAH TIM ================= */}
+      <div style={cardStyle}>
+        <h3>Tambah Tim Baru</h3>
+        <div style={{ display: "flex", gap: "15px", marginTop: "10px" }}>
           <input
             placeholder="Nama Tim"
             value={namaTim}
             onChange={(e) => setNamaTim(e.target.value)}
             style={inputStyle}
           />
-
-          <button onClick={tambahPeserta} style={primaryButton}>
-            + Tambah
+          <button onClick={tambahTim} style={primaryBtn}>
+            + Tambah Tim
           </button>
         </div>
       </div>
 
-      {/* ================= SEARCH ================= */}
-      <div>
-        <input
-          placeholder="🔍 Cari peserta..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setCurrentPage(1);
+      {/* ================= FORM TAMBAH PEMAIN ================= */}
+      <div style={cardStyle}>
+        <h3>Tambah Pemain ke Tim</h3>
+        <div
+          style={{
+            display: "flex",
+            gap: "15px",
+            marginTop: "10px",
+            flexWrap: "wrap",
           }}
-          style={{ ...inputStyle, width: "300px" }}
-        />
+        >
+          <select
+            value={selectedTeam}
+            onChange={(e) => setSelectedTeam(e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">Pilih Tim</option>
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.namaTim}
+              </option>
+            ))}
+          </select>
+
+          <input
+            placeholder="Nama Pemain"
+            value={namaPemain}
+            onChange={(e) => setNamaPemain(e.target.value)}
+            style={inputStyle}
+          />
+
+          <button onClick={tambahPemain} style={primaryBtn}>
+            + Tambah Pemain
+          </button>
+        </div>
       </div>
 
-      {/* ================= TABLE ================= */}
-      <div style={panelStyle}>
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>No</th>
-              <th style={thStyle}>Nama Peserta</th>
-              <th style={thStyle}>Nama Tim</th>
-              <th style={thStyle}>Aksi</th>
-            </tr>
-          </thead>
+      {/* ================= GRID TIM ================= */}
+      <div style={gridStyle}>
+        {teams.length === 0 && (
+          <p style={{ color: "#64748b" }}>Belum ada tim terdaftar</p>
+        )}
 
-          <tbody>
-            {displayed.length === 0 ? (
-              <tr>
-                <td colSpan="4" style={emptyState}>
-                  Tidak ada data
-                </td>
-              </tr>
+        {teams.map((team) => (
+          <div key={team.id} style={teamCard}>
+            <h3 style={{ marginBottom: "10px" }}>{team.namaTim}</h3>
+
+            {team.pemain.length === 0 ? (
+              <p style={{ color: "#94a3b8" }}>Belum ada pemain</p>
             ) : (
-              displayed.map((p, index) => (
-                <tr
-                  key={p.id}
-                  style={{
-                    backgroundColor: index % 2 === 0 ? "#ffffff" : "#f8fafc",
-                  }}
-                >
-                  <td style={tdStyle}>
-                    {(currentPage - 1) * itemsPerPage + index + 1}
-                  </td>
-                  <td style={tdStyle}>{p.nama}</td>
-                  <td style={tdStyle}>{p.tim}</td>
-                  <td style={tdStyle}>
-                    <button
-                      onClick={() => hapusPeserta(p.id)}
-                      style={deleteButton}
-                    >
-                      Hapus
-                    </button>
-                  </td>
-                </tr>
+              team.pemain.map((p) => (
+                <div key={p.id} style={playerItem}>
+                  <span>{p.nama}</span>
+                  <button
+                    onClick={() => hapusPemain(team.id, p.id)}
+                    style={deleteBtn}
+                  >
+                    ✕
+                  </button>
+                </div>
               ))
             )}
-          </tbody>
-        </table>
-
-        {/* ================= PAGINATION ================= */}
-        <div style={paginationStyle}>
-          <button
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage(currentPage - 1)}
-            style={pageButton}
-          >
-            Prev
-          </button>
-
-          <span>
-            Page {currentPage} / {totalPages || 1}
-          </span>
-
-          <button
-            disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage(currentPage + 1)}
-            style={pageButton}
-          >
-            Next
-          </button>
-        </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -162,94 +156,55 @@ export default function Registrasi({ peserta, setPeserta }) {
 
 /* ================= STYLES ================= */
 
-const pageStyle = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "25px",
-};
-
-const headerStyle = {
-  marginBottom: "10px",
-};
-
-const subText = {
-  marginTop: "5px",
-  color: "#64748b",
-};
-
-const panelStyle = {
+const cardStyle = {
   background: "white",
-  padding: "25px",
+  padding: "20px",
   borderRadius: "14px",
-  boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-};
-
-const formStyle = {
-  display: "flex",
-  gap: "15px",
-  marginTop: "15px",
-  flexWrap: "wrap",
+  boxShadow: "0 5px 15px rgba(0,0,0,0.08)",
 };
 
 const inputStyle = {
   padding: "10px",
   borderRadius: "8px",
   border: "1px solid #d1d5db",
-  outline: "none",
+  minWidth: "200px",
 };
 
-const primaryButton = {
+const primaryBtn = {
   padding: "10px 18px",
-  backgroundColor: "#16a34a",
+  background: "#16a34a",
   color: "white",
   border: "none",
   borderRadius: "8px",
   cursor: "pointer",
 };
 
-const deleteButton = {
-  padding: "6px 12px",
-  backgroundColor: "#ef4444",
-  color: "white",
-  border: "none",
-  borderRadius: "6px",
-  cursor: "pointer",
+const gridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
+  gap: "20px",
 };
 
-const tableStyle = {
-  width: "100%",
-  marginTop: "15px",
-  borderCollapse: "collapse",
-};
-
-const thStyle = {
-  textAlign: "left",
-  padding: "12px",
-  backgroundColor: "#f1f5f9",
-  fontWeight: "600",
-};
-
-const tdStyle = {
-  padding: "12px",
-};
-
-const emptyState = {
-  textAlign: "center",
+const teamCard = {
+  background: "white",
   padding: "20px",
-  color: "#64748b",
+  borderRadius: "14px",
+  boxShadow: "0 5px 15px rgba(0,0,0,0.08)",
 };
 
-const paginationStyle = {
+const playerItem = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  marginTop: "20px",
+  padding: "8px 0",
+  borderBottom: "1px solid #f1f5f9",
 };
 
-const pageButton = {
-  padding: "6px 12px",
+const deleteBtn = {
+  background: "#ef4444",
+  border: "none",
+  color: "white",
   borderRadius: "6px",
-  border: "1px solid #d1d5db",
-  background: "white",
+  padding: "4px 8px",
   cursor: "pointer",
 };

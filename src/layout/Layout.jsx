@@ -48,12 +48,6 @@ export default function Layout({ onLogout }) {
             collapsed={collapsed}
           />
           <SidebarLink
-            to="/race"
-            label="Race Manager"
-            icon="🏎️"
-            collapsed={collapsed}
-          />
-          <SidebarLink
             to="/hasil"
             label="Input Hasil"
             icon="🎯"
