@@ -34,7 +34,13 @@ export default function Registrasi({ teams, setTeams }) {
       if (t.id === Number(selectedTeam)) {
         return {
           ...t,
-          pemain: [...t.pemain, { id: Date.now(), nama: namaPemain }],
+          pemain: [
+            ...t.pemain,
+            {
+              id: Date.now(),
+              nama: namaPemain,
+            },
+          ],
         };
       }
       return t;
@@ -60,19 +66,19 @@ export default function Registrasi({ teams, setTeams }) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "30px" }}>
+    <div style={pageWrapper}>
       {/* ================= HEADER ================= */}
       <div>
         <h1>🏁 Registrasi Tim & Pemain</h1>
-        <p>
+        <p style={{ color: "#64748b" }}>
           Total Tim Terdaftar: <b>{teams.length}</b>
         </p>
       </div>
 
-      {/* ================= FORM TAMBAH TIM ================= */}
+      {/* ================= TAMBAH TIM ================= */}
       <div style={cardStyle}>
         <h3>Tambah Tim Baru</h3>
-        <div style={{ display: "flex", gap: "15px", marginTop: "10px" }}>
+        <div style={formRow}>
           <input
             placeholder="Nama Tim"
             value={namaTim}
@@ -85,17 +91,10 @@ export default function Registrasi({ teams, setTeams }) {
         </div>
       </div>
 
-      {/* ================= FORM TAMBAH PEMAIN ================= */}
+      {/* ================= TAMBAH PEMAIN ================= */}
       <div style={cardStyle}>
         <h3>Tambah Pemain ke Tim</h3>
-        <div
-          style={{
-            display: "flex",
-            gap: "15px",
-            marginTop: "10px",
-            flexWrap: "wrap",
-          }}
-        >
+        <div style={formRow}>
           <select
             value={selectedTeam}
             onChange={(e) => setSelectedTeam(e.target.value)}
@@ -123,30 +122,43 @@ export default function Registrasi({ teams, setTeams }) {
       </div>
 
       {/* ================= GRID TIM ================= */}
-      <div style={gridStyle}>
+      <div style={gridPro}>
         {teams.length === 0 && (
           <p style={{ color: "#64748b" }}>Belum ada tim terdaftar</p>
         )}
 
         {teams.map((team) => (
-          <div key={team.id} style={teamCard}>
-            <h3 style={{ marginBottom: "10px" }}>{team.namaTim}</h3>
+          <div key={team.id} style={teamCardPro}>
+            {/* HEADER TEAM */}
+            <div style={teamHeader}>
+              <div>
+                <h3 style={{ margin: 0 }}>{team.namaTim}</h3>
+                <p style={teamSub}>{team.pemain.length} Pemain</p>
+              </div>
+            </div>
 
-            {team.pemain.length === 0 ? (
-              <p style={{ color: "#94a3b8" }}>Belum ada pemain</p>
-            ) : (
-              team.pemain.map((p) => (
-                <div key={p.id} style={playerItem}>
-                  <span>{p.nama}</span>
-                  <button
-                    onClick={() => hapusPemain(team.id, p.id)}
-                    style={deleteBtn}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))
-            )}
+            {/* LIST PLAYER */}
+            <div style={{ marginTop: 15 }}>
+              {team.pemain.length === 0 ? (
+                <p style={{ color: "#94a3b8" }}>Belum ada pemain</p>
+              ) : (
+                team.pemain.map((p, index) => (
+                  <div key={p.id} style={playerItemPro}>
+                    <div style={playerLeft}>
+                      <div style={playerBadge}>{index + 1}</div>
+                      <span>{p.nama}</span>
+                    </div>
+
+                    <button
+                      onClick={() => hapusPemain(team.id, p.id)}
+                      style={deleteBtnPro}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -156,55 +168,99 @@ export default function Registrasi({ teams, setTeams }) {
 
 /* ================= STYLES ================= */
 
+const pageWrapper = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "30px",
+};
+
 const cardStyle = {
   background: "white",
-  padding: "20px",
-  borderRadius: "14px",
-  boxShadow: "0 5px 15px rgba(0,0,0,0.08)",
+  padding: "25px",
+  borderRadius: "16px",
+  boxShadow: "0 8px 25px rgba(0,0,0,0.08)",
+};
+
+const formRow = {
+  display: "flex",
+  gap: "15px",
+  marginTop: "15px",
+  flexWrap: "wrap",
 };
 
 const inputStyle = {
-  padding: "10px",
-  borderRadius: "8px",
+  padding: "12px 14px",
+  borderRadius: "10px",
   border: "1px solid #d1d5db",
-  minWidth: "200px",
+  minWidth: "220px",
 };
 
 const primaryBtn = {
-  padding: "10px 18px",
+  padding: "12px 20px",
   background: "#16a34a",
   color: "white",
   border: "none",
-  borderRadius: "8px",
+  borderRadius: "10px",
   cursor: "pointer",
+  fontWeight: "600",
 };
 
-const gridStyle = {
+const gridPro = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
-  gap: "20px",
+  gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+  gap: "25px",
 };
 
-const teamCard = {
+const teamCardPro = {
   background: "white",
-  padding: "20px",
-  borderRadius: "14px",
-  boxShadow: "0 5px 15px rgba(0,0,0,0.08)",
+  padding: "25px",
+  borderRadius: "18px",
+  boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
+  display: "flex",
+  flexDirection: "column",
 };
 
-const playerItem = {
+const teamHeader = {
+  borderBottom: "1px solid #f1f5f9",
+  paddingBottom: "12px",
+};
+
+const teamSub = {
+  margin: "4px 0 0 0",
+  fontSize: "13px",
+  color: "#64748b",
+};
+
+const playerItemPro = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  padding: "8px 0",
-  borderBottom: "1px solid #f1f5f9",
+  padding: "10px 0",
+  borderBottom: "1px solid #f8fafc",
 };
 
-const deleteBtn = {
-  background: "#ef4444",
+const playerLeft = {
+  display: "flex",
+  alignItems: "center",
+  gap: "12px",
+};
+
+const playerBadge = {
+  background: "#e2e8f0",
+  fontSize: "12px",
+  fontWeight: "600",
+  padding: "5px 10px",
+  borderRadius: "8px",
+  minWidth: "28px",
+  textAlign: "center",
+};
+
+const deleteBtnPro = {
+  background: "#fee2e2",
   border: "none",
-  color: "white",
-  borderRadius: "6px",
-  padding: "4px 8px",
+  color: "#ef4444",
+  borderRadius: "8px",
+  padding: "6px 10px",
   cursor: "pointer",
+  fontWeight: "600",
 };

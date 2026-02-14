@@ -1,65 +1,78 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
-const columns = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
+/* ================= GENERATE COLUMN DINAMIS ================= */
+const generateColumns = (endLetter = "I") => {
+  const start = "A".charCodeAt(0);
+  const end = endLetter.charCodeAt(0);
 
-export default function Hasil({ teams = [] }) {
-  // flatten semua pemain dari teams
-  const peserta = teams.flatMap((t) => t.pemain);
+  const cols = [];
+  for (let i = start; i <= end; i++) {
+    cols.push(String.fromCharCode(i));
+  }
+  return cols;
+};
+
+/* ================= GENERATE A-Z FOR DROPDOWN ================= */
+const alphabet = Array.from({ length: 26 }, (_, i) =>
+  String.fromCharCode(65 + i),
+);
+
+export default function Hasil() {
+  const [maxColumn, setMaxColumn] = useState("I");
+  const columns = useMemo(() => generateColumns(maxColumn), [maxColumn]);
 
   const createEmptyRound = (roundNumber) => ({
     id: roundNumber,
     nama: `Round ${roundNumber}`,
-    grid: Array.from({ length: 16 }, (_, i) => {
-      const row = { no: i + 1 };
-      columns.forEach((col) => (row[col] = null));
-      return row;
-    }),
+    grid: [],
   });
 
-  const [rounds, setRounds] = useState([
-    createEmptyRound(2), // 🔥 mulai dari round 2
-  ]);
-
+  const [rounds, setRounds] = useState([createEmptyRound(2)]);
   const [selectedRound, setSelectedRound] = useState(2);
-  const [scanValue, setScanValue] = useState("");
+  const [inputNama, setInputNama] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const roundAktif = rounds.find((r) => r.id === selectedRound);
 
-  /* ================= SCAN LOGIC ================= */
-  const handleScan = (e) => {
-    const value = e.target.value;
-    setScanValue(value);
+  /* ================= INPUT ================= */
+  const handleInput = (e) => {
+    if (e.key === "Enter" && inputNama.trim()) {
+      isiSlot(inputNama.trim());
+    }
+  };
 
-    const pesertaScan = peserta.find((p) => p.id.toString() === value);
-
-    if (!pesertaScan) return;
-
-    const totalSlot = roundAktif.grid.length * columns.length;
-    if (currentIndex >= totalSlot) return;
-
-    const rowIndex = Math.floor(currentIndex / columns.length);
-    const colIndex = currentIndex % columns.length;
+  const isiSlot = (nama) => {
+    const colCount = columns.length;
+    const rowIndex = Math.floor(currentIndex / colCount);
+    const colIndex = currentIndex % colCount;
     const columnKey = columns[colIndex];
 
     const updatedRounds = rounds.map((r) => {
       if (r.id === selectedRound) {
         const newGrid = [...r.grid];
-        newGrid[rowIndex] = {
-          ...newGrid[rowIndex],
-          [columnKey]: pesertaScan.nama,
-        };
+
+        if (!newGrid[rowIndex]) {
+          const newRow = { no: rowIndex + 1 };
+          columns.forEach((col) => (newRow[col] = ""));
+          newGrid[rowIndex] = newRow;
+        }
+
+        newGrid[rowIndex][columnKey] = nama;
+
         return { ...r, grid: newGrid };
       }
       return r;
     });
 
     setRounds(updatedRounds);
-    setCurrentIndex(currentIndex + 1);
-    setScanValue("");
+    setCurrentIndex((prev) => prev + 1);
+    setInputNama("");
   };
 
-  /* ================= TAMBAH ROUND ================= */
   const tambahRound = () => {
     const newRoundNumber = rounds.length + 2;
     setRounds([...rounds, createEmptyRound(newRoundNumber)]);
@@ -67,11 +80,92 @@ export default function Hasil({ teams = [] }) {
     setCurrentIndex(0);
   };
 
+  /* ================= EXPORT EXCEL ================= */
+  const exportExcel = () => {
+    const data = roundAktif.grid.map((row) => {
+      const rowData = { NO: row.no };
+      columns.forEach((col) => {
+        rowData[col] = row[col] || "";
+      });
+      return rowData;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, roundAktif.nama);
+
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    saveAs(blob, `${roundAktif.nama}.xlsx`);
+  };
+
+  /* ================= EXPORT PDF ================= */
+  const exportPDF = () => {
+    const doc = new jsPDF("landscape");
+
+    const tableColumn = ["NO", ...columns];
+    const tableRows = roundAktif.grid.map((row) => [
+      row.no,
+      ...columns.map((col) => row[col] || ""),
+    ]);
+
+    doc.text(`Round Result - ${roundAktif.nama}`, 14, 15);
+
+    doc.autoTable({
+      head: [tableColumn],
+      body: tableRows,
+      startY: 20,
+    });
+
+    doc.save(`${roundAktif.nama}.pdf`);
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "25px" }}>
+      {/* HEADER + EXPORT BUTTON */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <div>
+          <h1>🏁 ROUND MANAGEMENT</h1>
+          <p>Input Nama untuk isi slot otomatis (Tekan Enter)</p>
+        </div>
+
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button style={exportBlue} onClick={exportPDF}>
+            Export PDF
+          </button>
+          <button style={exportGreen} onClick={exportExcel}>
+            Export Excel
+          </button>
+        </div>
+      </div>
+
+      {/* ===== CUSTOM COLUMN ===== */}
       <div>
-        <h1>🏁 ROUND MANAGEMENT</h1>
-        <p>Scan Barcode Peserta untuk mengisi slot otomatis</p>
+        <label>Max Kolom (A - Z)</label>
+        <select
+          value={maxColumn}
+          onChange={(e) => setMaxColumn(e.target.value)}
+          style={{ marginLeft: "10px", padding: "6px" }}
+        >
+          {alphabet.map((letter) => (
+            <option key={letter} value={letter}>
+              {letter}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* ROUND TAB */}
@@ -110,7 +204,7 @@ export default function Hasil({ teams = [] }) {
         </button>
       </div>
 
-      {/* SCAN INPUT */}
+      {/* INPUT */}
       <div
         style={{
           background: "white",
@@ -121,9 +215,10 @@ export default function Hasil({ teams = [] }) {
       >
         <input
           autoFocus
-          placeholder="Scan barcode di sini..."
-          value={scanValue}
-          onChange={handleScan}
+          placeholder="Ketik nama lalu tekan Enter..."
+          value={inputNama}
+          onChange={(e) => setInputNama(e.target.value)}
+          onKeyDown={handleInput}
           style={{
             padding: "14px",
             width: "100%",
@@ -134,7 +229,7 @@ export default function Hasil({ teams = [] }) {
         />
       </div>
 
-      {/* GRID TABLE */}
+      {/* GRID */}
       <div
         style={{
           background: "white",
@@ -144,12 +239,7 @@ export default function Hasil({ teams = [] }) {
           overflowX: "auto",
         }}
       >
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-          }}
-        >
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
               <th style={thStyle}>NO</th>
@@ -189,4 +279,22 @@ const tdStyle = {
   padding: "8px",
   border: "1px solid #e5e7eb",
   textAlign: "center",
+};
+
+const exportBlue = {
+  padding: "8px 16px",
+  backgroundColor: "#2563eb",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  cursor: "pointer",
+};
+
+const exportGreen = {
+  padding: "8px 16px",
+  backgroundColor: "#16a34a",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  cursor: "pointer",
 };
