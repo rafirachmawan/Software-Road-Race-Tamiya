@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import JsBarcode from "jsbarcode";
 
 export default function Registrasi() {
   const [teams, setTeams] = useState([]);
@@ -6,7 +7,13 @@ export default function Registrasi() {
   const [selectedTeam, setSelectedTeam] = useState("");
   const [namaPemain, setNamaPemain] = useState("");
 
-  /* ================= LOAD DATA AWAL ================= */
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [editNama, setEditNama] = useState("");
+
+  const barcodeRef = useRef(null);
+  const printRef = useRef(null);
+
+  /* LOAD DATA */
   useEffect(() => {
     loadTeams();
   }, []);
@@ -16,51 +23,93 @@ export default function Registrasi() {
     setTeams(data);
   };
 
-  /* ================= TAMBAH TIM ================= */
+  /* TAMBAH TIM */
   const tambahTim = async () => {
     if (!namaTim) return alert("Nama tim wajib diisi");
 
     const result = await window.api.addTeam(namaTim);
-
-    if (!result.success) {
-      return alert(result.message);
-    }
+    if (!result.success) return alert(result.message);
 
     setNamaTim("");
     loadTeams();
   };
 
-  /* ================= TAMBAH PEMAIN ================= */
+  /* TAMBAH PEMAIN */
   const tambahPemain = async () => {
     if (!selectedTeam || !namaPemain)
       return alert("Pilih tim dan isi nama pemain");
 
-    await window.api.addPlayer({
+    const result = await window.api.addPlayer({
       teamId: Number(selectedTeam),
       nama: namaPemain,
     });
+
+    if (result.success) {
+      openPlayerModal(result.player);
+    }
 
     setNamaPemain("");
     loadTeams();
   };
 
-  /* ================= HAPUS PEMAIN ================= */
-  const hapusPemain = async (teamId, pemainId) => {
-    await window.api.deletePlayer(pemainId);
+  /* OPEN MODAL */
+  const openPlayerModal = (player) => {
+    setSelectedPlayer(player);
+    setEditNama(player.nama);
+
+    setTimeout(() => {
+      if (barcodeRef.current) {
+        JsBarcode(barcodeRef.current, player.barcode, {
+          format: "CODE128",
+          width: 2,
+          height: 80,
+          displayValue: true,
+        });
+      }
+    }, 100);
+  };
+
+  /* UPDATE NAMA */
+  const updateNama = async () => {
+    const result = await window.api.updatePlayer({
+      id: selectedPlayer.id,
+      nama: editNama,
+    });
+
+    if (result.success) {
+      loadTeams();
+      setSelectedPlayer({ ...selectedPlayer, nama: editNama });
+    }
+  };
+
+  /* PRINT */
+  const handlePrint = () => {
+    const content = printRef.current.innerHTML;
+    const win = window.open("", "", "width=600,height=600");
+
+    win.document.write(`
+      <html>
+        <body style="text-align:center;font-family:Arial;padding:30px">
+          ${content}
+        </body>
+      </html>
+    `);
+
+    win.document.close();
+    win.print();
+  };
+
+  /* DELETE */
+  const hapusPemain = async (id) => {
+    await window.api.deletePlayer(id);
     loadTeams();
   };
 
   return (
     <div style={pageWrapper}>
-      {/* ================= HEADER ================= */}
-      <div>
-        <h1>🏁 Registrasi Tim & Pemain</h1>
-        <p style={{ color: "#64748b" }}>
-          Total Tim Terdaftar: <b>{teams.length}</b>
-        </p>
-      </div>
+      <h1>🏁 Registrasi Tim & Pemain</h1>
 
-      {/* ================= TAMBAH TIM ================= */}
+      {/* TAMBAH TIM */}
       <div style={cardStyle}>
         <h3>Tambah Tim Baru</h3>
         <div style={formRow}>
@@ -76,7 +125,7 @@ export default function Registrasi() {
         </div>
       </div>
 
-      {/* ================= TAMBAH PEMAIN ================= */}
+      {/* TAMBAH PEMAIN */}
       <div style={cardStyle}>
         <h3>Tambah Pemain ke Tim</h3>
         <div style={formRow}>
@@ -106,55 +155,82 @@ export default function Registrasi() {
         </div>
       </div>
 
-      {/* ================= GRID TIM ================= */}
+      {/* LIST */}
       <div style={gridPro}>
-        {teams.length === 0 && (
-          <p style={{ color: "#64748b" }}>Belum ada tim terdaftar</p>
-        )}
-
         {teams.map((team) => (
           <div key={team.id} style={teamCardPro}>
-            <div style={teamHeader}>
-              <div>
-                <h3 style={{ margin: 0 }}>{team.namaTim}</h3>
-                <p style={teamSub}>{team.pemain.length} Pemain</p>
-              </div>
-            </div>
+            <h3>{team.namaTim}</h3>
 
-            <div style={{ marginTop: 15 }}>
-              {team.pemain.length === 0 ? (
-                <p style={{ color: "#94a3b8" }}>Belum ada pemain</p>
-              ) : (
-                team.pemain.map((p, index) => (
-                  <div key={p.id} style={playerItemPro}>
-                    <div style={playerLeft}>
-                      <div style={playerBadge}>{index + 1}</div>
-                      <span>{p.nama}</span>
-                    </div>
+            {team.pemain.map((p, index) => (
+              <div key={p.id} style={playerItemPro}>
+                <div style={playerLeft}>
+                  <div style={playerBadge}>{index + 1}</div>
 
-                    <button
-                      onClick={() => hapusPemain(team.id, p.id)}
-                      style={deleteBtnPro}
-                    >
-                      ✕
-                    </button>
+                  {/* CLICKABLE NAME */}
+                  <div
+                    style={{ cursor: "pointer" }}
+                    onClick={() => openPlayerModal(p)}
+                  >
+                    <strong>{p.nama}</strong>
+                    <div style={barcodeText}>{p.barcode}</div>
                   </div>
-                ))
-              )}
-            </div>
+                </div>
+
+                <button onClick={() => hapusPemain(p.id)} style={deleteBtnPro}>
+                  ✕
+                </button>
+              </div>
+            ))}
           </div>
         ))}
       </div>
+
+      {/* MODAL */}
+      {selectedPlayer && (
+        <div style={modalOverlay}>
+          <div style={modalBox}>
+            <div ref={printRef}>
+              <h2>🎟️ Kartu Peserta</h2>
+
+              {/* EDIT NAMA */}
+              <input
+                value={editNama}
+                onChange={(e) => setEditNama(e.target.value)}
+                style={{
+                  ...inputStyle,
+                  marginBottom: "15px",
+                  width: "100%",
+                }}
+              />
+
+              <button onClick={updateNama} style={primaryBtn}>
+                Update Nama
+              </button>
+
+              <p style={{ marginTop: 20 }}>Barcode: {selectedPlayer.barcode}</p>
+
+              <svg ref={barcodeRef}></svg>
+            </div>
+
+            <div style={{ display: "flex", gap: 15, marginTop: 20 }}>
+              <button style={printBtn} onClick={handlePrint}>
+                🖨 Print
+              </button>
+
+              <button style={closeBtn} onClick={() => setSelectedPlayer(null)}>
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 /* ================= STYLES ================= */
 
-const pageWrapper = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "30px",
-};
+const pageWrapper = { display: "flex", flexDirection: "column", gap: "30px" };
 
 const cardStyle = {
   background: "white",
@@ -198,8 +274,6 @@ const teamCardPro = {
   padding: "25px",
   borderRadius: "18px",
   boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
-  display: "flex",
-  flexDirection: "column",
 };
 
 const teamHeader = {
@@ -233,9 +307,9 @@ const playerBadge = {
   fontWeight: "600",
   padding: "5px 10px",
   borderRadius: "8px",
-  minWidth: "28px",
-  textAlign: "center",
 };
+
+const barcodeText = { fontSize: "12px", color: "#64748b" };
 
 const deleteBtnPro = {
   background: "#fee2e2",
@@ -245,4 +319,39 @@ const deleteBtnPro = {
   padding: "6px 10px",
   cursor: "pointer",
   fontWeight: "600",
+};
+
+const modalOverlay = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.5)",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+};
+
+const modalBox = {
+  background: "white",
+  padding: "40px",
+  borderRadius: "16px",
+  textAlign: "center",
+  minWidth: "400px",
+};
+
+const printBtn = {
+  padding: "10px 20px",
+  background: "#2563eb",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  cursor: "pointer",
+};
+
+const closeBtn = {
+  padding: "10px 20px",
+  background: "#64748b",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  cursor: "pointer",
 };

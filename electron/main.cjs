@@ -7,13 +7,15 @@ let displayWindow;
 let db;
 
 /* =========================
-   CREATE DATABASE
+   INIT DATABASE
 ========================= */
 function initDatabase() {
   const dbPath = path.join(app.getPath("userData"), "race.db");
   db = new Database(dbPath);
 
-  // USERS TABLE
+  db.pragma("foreign_keys = ON");
+
+  // USERS
   db.prepare(
     `
     CREATE TABLE IF NOT EXISTS users (
@@ -25,7 +27,7 @@ function initDatabase() {
   `,
   ).run();
 
-  // TEAMS TABLE
+  // TEAMS
   db.prepare(
     `
     CREATE TABLE IF NOT EXISTS teams (
@@ -35,13 +37,14 @@ function initDatabase() {
   `,
   ).run();
 
-  // PLAYERS TABLE
+  // PLAYERS
   db.prepare(
     `
     CREATE TABLE IF NOT EXISTS players (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       teamId INTEGER,
       nama TEXT,
+      barcode TEXT UNIQUE,
       FOREIGN KEY(teamId) REFERENCES teams(id) ON DELETE CASCADE
     )
   `,
@@ -110,7 +113,7 @@ app.whenReady().then(() => {
 });
 
 /* =========================
-   LOGIN IPC
+   LOGIN
 ========================= */
 ipcMain.handle("login", (event, { username, password }) => {
   const user = db
@@ -127,7 +130,7 @@ ipcMain.handle("login", (event, { username, password }) => {
 });
 
 /* =========================
-   GET TEAMS
+   GET TEAMS + PLAYERS
 ========================= */
 ipcMain.handle("get-teams", () => {
   const teams = db.prepare("SELECT * FROM teams").all();
@@ -157,15 +160,70 @@ ipcMain.handle("add-team", (event, namaTim) => {
 });
 
 /* =========================
-   ADD PLAYER
+   ADD PLAYER + GENERATE BARCODE
 ========================= */
 ipcMain.handle("add-player", (event, { teamId, nama }) => {
-  db.prepare("INSERT INTO players (teamId, nama) VALUES (?, ?)").run(
-    teamId,
-    nama,
-  );
+  try {
+    const result = db
+      .prepare(
+        `
+        INSERT INTO players (teamId, nama)
+        VALUES (?, ?)
+      `,
+      )
+      .run(teamId, nama);
 
-  return { success: true };
+    const playerId = result.lastInsertRowid;
+
+    const barcode = `RC-${String(playerId).padStart(5, "0")}`;
+
+    db.prepare(
+      `
+        UPDATE players
+        SET barcode = ?
+        WHERE id = ?
+      `,
+    ).run(barcode, playerId);
+
+    const player = db
+      .prepare(
+        `
+        SELECT players.*, teams.namaTim
+        FROM players
+        JOIN teams ON players.teamId = teams.id
+        WHERE players.id = ?
+      `,
+      )
+      .get(playerId);
+
+    return {
+      success: true,
+      player,
+    };
+  } catch (err) {
+    console.error(err);
+    return { success: false };
+  }
+});
+
+/* =========================
+   UPDATE PLAYER NAME
+========================= */
+ipcMain.handle("update-player", (event, { id, nama }) => {
+  try {
+    db.prepare(
+      `
+        UPDATE players
+        SET nama = ?
+        WHERE id = ?
+      `,
+    ).run(nama, id);
+
+    return { success: true };
+  } catch (err) {
+    console.error(err);
+    return { success: false };
+  }
 });
 
 /* =========================
@@ -177,20 +235,16 @@ ipcMain.handle("delete-player", (event, pemainId) => {
 });
 
 /* =========================
-   OPEN DISPLAY
+   DISPLAY CONTROL
 ========================= */
 ipcMain.on("open-display", () => {
   if (displayWindow) {
     displayWindow.focus();
     return;
   }
-
   createDisplayWindow();
 });
 
-/* =========================
-   CLOSE DISPLAY
-========================= */
 ipcMain.on("close-display", () => {
   if (displayWindow) {
     displayWindow.close();
