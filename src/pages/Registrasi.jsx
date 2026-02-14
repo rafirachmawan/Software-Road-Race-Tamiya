@@ -1,68 +1,53 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-export default function Registrasi({ teams, setTeams }) {
+export default function Registrasi() {
+  const [teams, setTeams] = useState([]);
   const [namaTim, setNamaTim] = useState("");
   const [selectedTeam, setSelectedTeam] = useState("");
   const [namaPemain, setNamaPemain] = useState("");
 
+  /* ================= LOAD DATA AWAL ================= */
+  useEffect(() => {
+    loadTeams();
+  }, []);
+
+  const loadTeams = async () => {
+    const data = await window.api.getTeams();
+    setTeams(data);
+  };
+
   /* ================= TAMBAH TIM ================= */
-  const tambahTim = () => {
+  const tambahTim = async () => {
     if (!namaTim) return alert("Nama tim wajib diisi");
 
-    const timSudahAda = teams.find(
-      (t) => t.namaTim.toLowerCase() === namaTim.toLowerCase(),
-    );
+    const result = await window.api.addTeam(namaTim);
 
-    if (timSudahAda) return alert("Nama tim sudah terdaftar!");
+    if (!result.success) {
+      return alert(result.message);
+    }
 
-    const newTeam = {
-      id: Date.now(),
-      namaTim,
-      pemain: [],
-    };
-
-    setTeams([...teams, newTeam]);
     setNamaTim("");
+    loadTeams();
   };
 
   /* ================= TAMBAH PEMAIN ================= */
-  const tambahPemain = () => {
+  const tambahPemain = async () => {
     if (!selectedTeam || !namaPemain)
       return alert("Pilih tim dan isi nama pemain");
 
-    const updated = teams.map((t) => {
-      if (t.id === Number(selectedTeam)) {
-        return {
-          ...t,
-          pemain: [
-            ...t.pemain,
-            {
-              id: Date.now(),
-              nama: namaPemain,
-            },
-          ],
-        };
-      }
-      return t;
+    await window.api.addPlayer({
+      teamId: Number(selectedTeam),
+      nama: namaPemain,
     });
 
-    setTeams(updated);
     setNamaPemain("");
+    loadTeams();
   };
 
   /* ================= HAPUS PEMAIN ================= */
-  const hapusPemain = (teamId, pemainId) => {
-    const updated = teams.map((t) => {
-      if (t.id === teamId) {
-        return {
-          ...t,
-          pemain: t.pemain.filter((p) => p.id !== pemainId),
-        };
-      }
-      return t;
-    });
-
-    setTeams(updated);
+  const hapusPemain = async (teamId, pemainId) => {
+    await window.api.deletePlayer(pemainId);
+    loadTeams();
   };
 
   return (
@@ -129,7 +114,6 @@ export default function Registrasi({ teams, setTeams }) {
 
         {teams.map((team) => (
           <div key={team.id} style={teamCardPro}>
-            {/* HEADER TEAM */}
             <div style={teamHeader}>
               <div>
                 <h3 style={{ margin: 0 }}>{team.namaTim}</h3>
@@ -137,7 +121,6 @@ export default function Registrasi({ teams, setTeams }) {
               </div>
             </div>
 
-            {/* LIST PLAYER */}
             <div style={{ marginTop: 15 }}>
               {team.pemain.length === 0 ? (
                 <p style={{ color: "#94a3b8" }}>Belum ada pemain</p>
@@ -165,7 +148,6 @@ export default function Registrasi({ teams, setTeams }) {
     </div>
   );
 }
-
 /* ================= STYLES ================= */
 
 const pageWrapper = {

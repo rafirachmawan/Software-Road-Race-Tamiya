@@ -25,6 +25,28 @@ function initDatabase() {
   `,
   ).run();
 
+  // TEAMS TABLE
+  db.prepare(
+    `
+    CREATE TABLE IF NOT EXISTS teams (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      namaTim TEXT UNIQUE
+    )
+  `,
+  ).run();
+
+  // PLAYERS TABLE
+  db.prepare(
+    `
+    CREATE TABLE IF NOT EXISTS players (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      teamId INTEGER,
+      nama TEXT,
+      FOREIGN KEY(teamId) REFERENCES teams(id) ON DELETE CASCADE
+    )
+  `,
+  ).run();
+
   // DEFAULT ADMIN
   const admin = db
     .prepare("SELECT * FROM users WHERE username = ?")
@@ -94,14 +116,64 @@ ipcMain.handle("login", (event, { username, password }) => {
   const user = db
     .prepare(
       `
-    SELECT id, username, role
-    FROM users
-    WHERE username = ? AND password = ?
-  `,
+      SELECT id, username, role
+      FROM users
+      WHERE username = ? AND password = ?
+    `,
     )
     .get(username, password);
 
   return user || null;
+});
+
+/* =========================
+   GET TEAMS
+========================= */
+ipcMain.handle("get-teams", () => {
+  const teams = db.prepare("SELECT * FROM teams").all();
+
+  return teams.map((team) => {
+    const pemain = db
+      .prepare("SELECT * FROM players WHERE teamId = ?")
+      .all(team.id);
+
+    return {
+      ...team,
+      pemain,
+    };
+  });
+});
+
+/* =========================
+   ADD TEAM
+========================= */
+ipcMain.handle("add-team", (event, namaTim) => {
+  try {
+    db.prepare("INSERT INTO teams (namaTim) VALUES (?)").run(namaTim);
+    return { success: true };
+  } catch (err) {
+    return { success: false, message: "Nama tim sudah ada" };
+  }
+});
+
+/* =========================
+   ADD PLAYER
+========================= */
+ipcMain.handle("add-player", (event, { teamId, nama }) => {
+  db.prepare("INSERT INTO players (teamId, nama) VALUES (?, ?)").run(
+    teamId,
+    nama,
+  );
+
+  return { success: true };
+});
+
+/* =========================
+   DELETE PLAYER
+========================= */
+ipcMain.handle("delete-player", (event, pemainId) => {
+  db.prepare("DELETE FROM players WHERE id = ?").run(pemainId);
+  return { success: true };
 });
 
 /* =========================
