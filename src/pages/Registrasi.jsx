@@ -13,7 +13,7 @@ export default function Registrasi() {
   const barcodeRef = useRef(null);
   const printRef = useRef(null);
 
-  /* LOAD DATA */
+  /* ================= LOAD DATA ================= */
   useEffect(() => {
     loadTeams();
   }, []);
@@ -23,7 +23,19 @@ export default function Registrasi() {
     setTeams(data);
   };
 
-  /* TAMBAH TIM */
+  /* ================= RENDER BARCODE ================= */
+  useEffect(() => {
+    if (selectedPlayer && barcodeRef.current) {
+      JsBarcode(barcodeRef.current, selectedPlayer.barcode, {
+        format: "CODE128",
+        width: 2,
+        height: 80,
+        displayValue: true,
+      });
+    }
+  }, [selectedPlayer]);
+
+  /* ================= TAMBAH TIM ================= */
   const tambahTim = async () => {
     if (!namaTim) return alert("Nama tim wajib diisi");
 
@@ -34,7 +46,7 @@ export default function Registrasi() {
     loadTeams();
   };
 
-  /* TAMBAH PEMAIN */
+  /* ================= TAMBAH PEMAIN ================= */
   const tambahPemain = async () => {
     if (!selectedTeam || !namaPemain)
       return alert("Pilih tim dan isi nama pemain");
@@ -45,44 +57,36 @@ export default function Registrasi() {
     });
 
     if (result.success) {
-      openPlayerModal(result.player);
+      setSelectedPlayer(result.player);
+      setEditNama(result.player.nama);
     }
 
     setNamaPemain("");
     loadTeams();
   };
 
-  /* OPEN MODAL */
+  /* ================= OPEN MODAL ================= */
   const openPlayerModal = (player) => {
     setSelectedPlayer(player);
     setEditNama(player.nama);
-
-    setTimeout(() => {
-      if (barcodeRef.current) {
-        JsBarcode(barcodeRef.current, player.barcode, {
-          format: "CODE128",
-          width: 2,
-          height: 80,
-          displayValue: true,
-        });
-      }
-    }, 100);
   };
 
-  /* UPDATE NAMA */
+  /* ================= UPDATE NAMA ================= */
   const updateNama = async () => {
+    if (!editNama) return alert("Nama tidak boleh kosong");
+
     const result = await window.api.updatePlayer({
       id: selectedPlayer.id,
       nama: editNama,
     });
 
     if (result.success) {
-      loadTeams();
       setSelectedPlayer({ ...selectedPlayer, nama: editNama });
+      loadTeams();
     }
   };
 
-  /* PRINT */
+  /* ================= PRINT ================= */
   const handlePrint = () => {
     const content = printRef.current.innerHTML;
     const win = window.open("", "", "width=600,height=600");
@@ -99,7 +103,7 @@ export default function Registrasi() {
     win.print();
   };
 
-  /* DELETE */
+  /* ================= DELETE ================= */
   const hapusPemain = async (id) => {
     await window.api.deletePlayer(id);
     loadTeams();
@@ -166,7 +170,6 @@ export default function Registrasi() {
                 <div style={playerLeft}>
                   <div style={playerBadge}>{index + 1}</div>
 
-                  {/* CLICKABLE NAME */}
                   <div
                     style={{ cursor: "pointer" }}
                     onClick={() => openPlayerModal(p)}
@@ -192,7 +195,6 @@ export default function Registrasi() {
             <div ref={printRef}>
               <h2>🎟️ Kartu Peserta</h2>
 
-              {/* EDIT NAMA */}
               <input
                 value={editNama}
                 onChange={(e) => setEditNama(e.target.value)}
@@ -274,17 +276,6 @@ const teamCardPro = {
   padding: "25px",
   borderRadius: "18px",
   boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
-};
-
-const teamHeader = {
-  borderBottom: "1px solid #f1f5f9",
-  paddingBottom: "12px",
-};
-
-const teamSub = {
-  margin: "4px 0 0 0",
-  fontSize: "13px",
-  color: "#64748b",
 };
 
 const playerItemPro = {

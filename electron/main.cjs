@@ -15,7 +15,7 @@ function initDatabase() {
 
   db.pragma("foreign_keys = ON");
 
-  // USERS
+  /* ================= USERS ================= */
   db.prepare(
     `
     CREATE TABLE IF NOT EXISTS users (
@@ -27,7 +27,7 @@ function initDatabase() {
   `,
   ).run();
 
-  // TEAMS
+  /* ================= TEAMS ================= */
   db.prepare(
     `
     CREATE TABLE IF NOT EXISTS teams (
@@ -37,7 +37,7 @@ function initDatabase() {
   `,
   ).run();
 
-  // PLAYERS
+  /* ================= PLAYERS ================= */
   db.prepare(
     `
     CREATE TABLE IF NOT EXISTS players (
@@ -50,7 +50,7 @@ function initDatabase() {
   `,
   ).run();
 
-  // DEFAULT ADMIN
+  /* ================= DEFAULT ADMIN ================= */
   const admin = db
     .prepare("SELECT * FROM users WHERE username = ?")
     .get("admin");
@@ -122,7 +122,7 @@ ipcMain.handle("login", (event, { username, password }) => {
       SELECT id, username, role
       FROM users
       WHERE username = ? AND password = ?
-    `,
+  `,
     )
     .get(username, password);
 
@@ -169,12 +169,13 @@ ipcMain.handle("add-player", (event, { teamId, nama }) => {
         `
         INSERT INTO players (teamId, nama)
         VALUES (?, ?)
-      `,
+    `,
       )
       .run(teamId, nama);
 
     const playerId = result.lastInsertRowid;
 
+    // 🔥 barcode hanya sebagai ID unik
     const barcode = `RC-${String(playerId).padStart(5, "0")}`;
 
     db.prepare(
@@ -182,9 +183,10 @@ ipcMain.handle("add-player", (event, { teamId, nama }) => {
         UPDATE players
         SET barcode = ?
         WHERE id = ?
-      `,
+    `,
     ).run(barcode, playerId);
 
+    // Ambil data lengkap
     const player = db
       .prepare(
         `
@@ -192,7 +194,7 @@ ipcMain.handle("add-player", (event, { teamId, nama }) => {
         FROM players
         JOIN teams ON players.teamId = teams.id
         WHERE players.id = ?
-      `,
+    `,
       )
       .get(playerId);
 
@@ -216,13 +218,36 @@ ipcMain.handle("update-player", (event, { id, nama }) => {
         UPDATE players
         SET nama = ?
         WHERE id = ?
-      `,
+    `,
     ).run(nama, id);
 
     return { success: true };
   } catch (err) {
     console.error(err);
     return { success: false };
+  }
+});
+
+/* =========================
+   FIND PLAYER BY BARCODE (SCAN)
+========================= */
+ipcMain.handle("find-player", (event, barcode) => {
+  try {
+    const player = db
+      .prepare(
+        `
+        SELECT players.*, teams.namaTim
+        FROM players
+        JOIN teams ON players.teamId = teams.id
+        WHERE players.barcode = ?
+    `,
+      )
+      .get(barcode.trim()); // 🔥 trim supaya aman dari spasi scanner
+
+    return player || null;
+  } catch (err) {
+    console.error(err);
+    return null;
   }
 });
 
