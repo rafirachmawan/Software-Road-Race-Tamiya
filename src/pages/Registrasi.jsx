@@ -103,6 +103,44 @@ export default function Registrasi() {
     win.print();
   };
 
+  /* ================= DOWNLOAD BARCODE ================= */
+  const downloadBarcode = () => {
+    const svg = barcodeRef.current;
+    if (!svg) return;
+
+    const serializer = new XMLSerializer();
+    const source = serializer.serializeToString(svg);
+
+    const svgBlob = new Blob([source], {
+      type: "image/svg+xml;charset=utf-8",
+    });
+
+    const url = URL.createObjectURL(svgBlob);
+
+    const img = new Image();
+    img.onload = function () {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+
+      const pngFile = canvas.toDataURL("image/png");
+
+      const downloadLink = document.createElement("a");
+      downloadLink.download = `${selectedPlayer.nama}-${selectedPlayer.barcode}.png`;
+      downloadLink.href = pngFile;
+      downloadLink.click();
+
+      URL.revokeObjectURL(url);
+    };
+
+    img.src = url;
+  };
+
   /* ================= DELETE ================= */
   const hapusPemain = async (id) => {
     await window.api.deletePlayer(id);
@@ -219,6 +257,10 @@ export default function Registrasi() {
                 🖨 Print
               </button>
 
+              <button style={downloadBtn} onClick={downloadBarcode}>
+                ⬇ Download
+              </button>
+
               <button style={closeBtn} onClick={() => setSelectedPlayer(null)}>
                 Tutup
               </button>
@@ -332,6 +374,15 @@ const modalBox = {
 const printBtn = {
   padding: "10px 20px",
   background: "#2563eb",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  cursor: "pointer",
+};
+
+const downloadBtn = {
+  padding: "10px 20px",
+  background: "#0ea5e9",
   color: "white",
   border: "none",
   borderRadius: "8px",
