@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld("api", {
   addPlayer: (data) => ipcRenderer.invoke("add-player", data),
   updatePlayer: (data) => ipcRenderer.invoke("update-player", data),
   deletePlayer: (id) => ipcRenderer.invoke("delete-player", id),
+  getPlayerById: (id) => ipcRenderer.invoke("get-player-by-id", id),
 
   /* ================= SCAN ================= */
   findPlayer: (barcode) => ipcRenderer.invoke("find-player", barcode),

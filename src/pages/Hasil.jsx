@@ -35,6 +35,7 @@ export default function Hasil() {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const [showScanModal, setShowScanModal] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
 
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -43,7 +44,7 @@ export default function Hasil() {
   const roundAktif = rounds.find((r) => r.id === selectedRound);
 
   /* ================= ISI SLOT ================= */
-  const isiSlot = async (nama) => {
+  const isiSlot = async (player) => {
     const colCount = columns.length;
     const rowIndex = Math.floor(currentIndex / colCount);
     const colIndex = currentIndex % colCount;
@@ -55,11 +56,13 @@ export default function Hasil() {
 
         if (!newGrid[rowIndex]) {
           const newRow = { no: rowIndex + 1 };
-          columns.forEach((col) => (newRow[col] = ""));
+          columns.forEach((col) => (newRow[col] = null));
+
           newGrid[rowIndex] = newRow;
         }
 
-        newGrid[rowIndex][columnKey] = nama;
+        newGrid[rowIndex][columnKey] = player;
+
         return { ...r, grid: newGrid };
       }
       return r;
@@ -72,7 +75,7 @@ export default function Hasil() {
       roundId: selectedRound,
       rowIndex,
       columnKey,
-      playerName: nama,
+      playerId: player.id,
     });
 
     setCurrentIndex((prev) => prev + 1);
@@ -87,7 +90,8 @@ export default function Hasil() {
       return;
     }
 
-    isiSlot(`${player.nama} (${player.namaTim})`);
+    isiSlot(player);
+
     stopCamera();
     setShowScanModal(false);
   };
@@ -244,15 +248,21 @@ export default function Hasil() {
     const newGrid = [];
 
     slots.forEach((slot) => {
-      const { rowIndex, columnKey, playerName } = slot;
+      const { rowIndex, columnKey, id, nama, barcode, namaTim } = slot;
 
       if (!newGrid[rowIndex]) {
         const newRow = { no: rowIndex + 1 };
-        columns.forEach((col) => (newRow[col] = ""));
+        columns.forEach((col) => (newRow[col] = null));
+
         newGrid[rowIndex] = newRow;
       }
 
-      newGrid[rowIndex][columnKey] = playerName;
+      newGrid[rowIndex][columnKey] = {
+        id,
+        nama,
+        barcode,
+        namaTim,
+      };
     });
 
     setRounds((prev) =>
@@ -359,8 +369,15 @@ export default function Hasil() {
               <tr key={row.no}>
                 <td style={tdStyle}>{row.no}</td>
                 {columns.map((col) => (
-                  <td key={col} style={tdStyle}>
-                    {row[col] || "-"}
+                  <td
+                    key={col}
+                    style={{
+                      ...tdStyle,
+                      cursor: row[col] ? "pointer" : "default",
+                    }}
+                    onClick={() => row[col] && setSelectedPlayer(row[col])}
+                  >
+                    {row[col] ? row[col].namaTim : "-"}
                   </td>
                 ))}
               </tr>
@@ -408,6 +425,27 @@ export default function Hasil() {
                 Tutup
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {selectedPlayer && (
+        <div style={modalOverlay}>
+          <div style={modalBox}>
+            <h3>Detail Peserta</h3>
+
+            <p>
+              <strong>Nama:</strong> {selectedPlayer.nama}
+            </p>
+            <p>
+              <strong>Tim:</strong> {selectedPlayer.namaTim}
+            </p>
+            <p>
+              <strong>Barcode:</strong> {selectedPlayer.barcode}
+            </p>
+
+            <button style={addRoundBtn} onClick={() => setSelectedPlayer(null)}>
+              Tutup
+            </button>
           </div>
         </div>
       )}

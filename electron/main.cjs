@@ -63,16 +63,17 @@ function initDatabase() {
   /* ROUND SLOTS */
   db.prepare(
     `
-    CREATE TABLE IF NOT EXISTS round_slots (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      roundId INTEGER,
-      rowIndex INTEGER,
-      columnKey TEXT,
-      playerName TEXT,
-      UNIQUE(roundId, rowIndex, columnKey),
-      FOREIGN KEY(roundId) REFERENCES rounds(id) ON DELETE CASCADE
-    )
-  `,
+  CREATE TABLE IF NOT EXISTS round_slots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    roundId INTEGER,
+    rowIndex INTEGER,
+    columnKey TEXT,
+    playerId INTEGER,
+    UNIQUE(roundId, rowIndex, columnKey),
+    FOREIGN KEY(roundId) REFERENCES rounds(id) ON DELETE CASCADE,
+    FOREIGN KEY(playerId) REFERENCES players(id) ON DELETE CASCADE
+  )
+`,
   ).run();
 
   /* DEFAULT ADMIN */
@@ -246,7 +247,7 @@ ipcMain.handle("find-player", (event, barcode) => {
    SAVE SLOT (PERSIST)
 ========================= */
 ipcMain.handle("save-slot", (event, data) => {
-  const { roundId, rowIndex, columnKey, playerName } = data;
+  const { roundId, rowIndex, columnKey, playerId } = data;
 
   try {
     // pastikan round ada
@@ -264,11 +265,12 @@ ipcMain.handle("save-slot", (event, data) => {
     // insert / replace supaya tidak duplicate
     db.prepare(
       `
-      INSERT OR REPLACE INTO round_slots
-      (roundId, rowIndex, columnKey, playerName)
-      VALUES (?, ?, ?, ?)
+    INSERT OR REPLACE INTO round_slots
+(roundId, rowIndex, columnKey, playerId)
+VALUES (?, ?, ?, ?)
+
     `,
-    ).run(roundId, rowIndex, columnKey, playerName);
+    ).run(roundId, rowIndex, columnKey, playerId);
 
     return { success: true };
   } catch (err) {
@@ -284,10 +286,19 @@ ipcMain.handle("get-round-data", (event, roundId) => {
   return db
     .prepare(
       `
-    SELECT rowIndex, columnKey, playerName
-    FROM round_slots
-    WHERE roundId = ?
-  `,
+      SELECT 
+        round_slots.rowIndex,
+        round_slots.columnKey,
+        players.id,
+        players.nama,
+        players.barcode,
+        teams.namaTim
+      FROM round_slots
+      JOIN players ON round_slots.playerId = players.id
+      JOIN teams ON players.teamId = teams.id
+      WHERE round_slots.roundId = ?
+      ORDER BY round_slots.rowIndex
+      `,
     )
     .all(roundId);
 });
