@@ -497,8 +497,45 @@ export default function Hasil() {
                 <strong>Tim:</strong> {selectedPlayer.namaTim}
               </p>
 
-              <div style={{ marginTop: 20 }}>
-                <svg ref={barcodeRef}></svg>
+              <div style={thermalButtonWrapper}>
+                <button
+                  style={thermalPrintBtn}
+                  onClick={() => {
+                    const content = thermalRef.current.innerHTML;
+                    const win = window.open("", "", "width=400,height=600");
+
+                    win.document.write(`
+        <html>
+          <head>
+            <style>
+              body {
+                margin:0;
+                font-family: monospace;
+                text-align:center;
+              }
+            </style>
+          </head>
+          <body>
+            ${content}
+          </body>
+        </html>
+      `);
+
+                    win.document.close();
+                    win.focus();
+                    win.print();
+                    win.close();
+                  }}
+                >
+                  🖨 Print Thermal
+                </button>
+
+                <button
+                  style={thermalCloseBtn}
+                  onClick={() => setShowKuponModal(false)}
+                >
+                  ✕ Tutup
+                </button>
               </div>
             </div>
 
@@ -605,29 +642,29 @@ export default function Hasil() {
               <div style={thermalFooter}>Race System</div>
             </div>
 
-            <div style={{ marginTop: 20 }}>
+            <div style={thermalButtonWrapper}>
               <button
-                style={exportBlue}
+                style={thermalPrintBtn}
                 onClick={() => {
                   const content = thermalRef.current.innerHTML;
                   const win = window.open("", "", "width=400,height=600");
 
                   win.document.write(`
-              <html>
-                <head>
-                  <style>
-                    body {
-                      margin:0;
-                      font-family: monospace;
-                      text-align:center;
-                    }
-                  </style>
-                </head>
-                <body>
-                  ${content}
-                </body>
-              </html>
-            `);
+        <html>
+          <head>
+            <style>
+              body {
+                margin:0;
+                font-family: monospace;
+                text-align:center;
+              }
+            </style>
+          </head>
+          <body>
+            ${content}
+          </body>
+        </html>
+      `);
 
                   win.document.close();
                   win.focus();
@@ -635,14 +672,14 @@ export default function Hasil() {
                   win.close();
                 }}
               >
-                Print Thermal
+                🖨 Print Thermal
               </button>
 
               <button
-                style={addRoundBtn}
+                style={thermalCloseBtn}
                 onClick={() => setShowKuponModal(false)}
               >
-                Tutup
+                ✕ Tutup
               </button>
             </div>
           </div>
@@ -819,4 +856,35 @@ const thermalTrack = {
 const thermalFooter = {
   fontSize: "12px",
   marginTop: "10px",
+};
+
+const thermalButtonWrapper = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px",
+  marginTop: "25px",
+};
+
+const thermalPrintBtn = {
+  width: "100%",
+  padding: "12px",
+  background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+  color: "white",
+  border: "none",
+  borderRadius: "10px",
+  fontWeight: "600",
+  fontSize: "14px",
+  cursor: "pointer",
+  boxShadow: "0 4px 12px rgba(37,99,235,0.3)",
+};
+
+const thermalCloseBtn = {
+  width: "100%",
+  padding: "10px",
+  background: "white",
+  border: "1px solid #e2e8f0",
+  borderRadius: "10px",
+  fontWeight: "500",
+  fontSize: "14px",
+  cursor: "pointer",
 };
