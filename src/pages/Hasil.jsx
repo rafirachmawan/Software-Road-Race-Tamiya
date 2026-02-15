@@ -5,6 +5,8 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 
+import JsBarcode from "jsbarcode";
+
 /* ================= GENERATE COLUMN ================= */
 const generateColumns = (endLetter = "I") => {
   const start = "A".charCodeAt(0);
@@ -40,6 +42,8 @@ export default function Hasil() {
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
   const codeReader = useRef(null);
+  const barcodeRef = useRef(null);
+  const printRef = useRef(null);
 
   const roundAktif = rounds.find((r) => r.id === selectedRound);
 
@@ -240,6 +244,20 @@ export default function Hasil() {
     loadRoundData(selectedRound);
   }, [selectedRound]);
 
+  useEffect(() => {
+    if (selectedPlayer && barcodeRef.current) {
+      JsBarcode(barcodeRef.current, selectedPlayer.barcode, {
+        format: "CODE128",
+        width: 3,
+        height: 120,
+        displayValue: true,
+        fontSize: 22,
+        margin: 20,
+        background: "#ffffff",
+      });
+    }
+  }, [selectedPlayer]);
+
   const loadRoundData = async (roundId) => {
     const slots = await window.api.getRoundData(roundId);
 
@@ -431,21 +449,97 @@ export default function Hasil() {
       {selectedPlayer && (
         <div style={modalOverlay}>
           <div style={modalBox}>
-            <h3>Detail Peserta</h3>
+            <div ref={printRef}>
+              <h3>Detail Peserta</h3>
 
-            <p>
-              <strong>Nama:</strong> {selectedPlayer.nama}
-            </p>
-            <p>
-              <strong>Tim:</strong> {selectedPlayer.namaTim}
-            </p>
-            <p>
-              <strong>Barcode:</strong> {selectedPlayer.barcode}
-            </p>
+              <p>
+                <strong>Nama:</strong> {selectedPlayer.nama}
+              </p>
+              <p>
+                <strong>Tim:</strong> {selectedPlayer.namaTim}
+              </p>
 
-            <button style={addRoundBtn} onClick={() => setSelectedPlayer(null)}>
-              Tutup
-            </button>
+              <div style={{ marginTop: 20 }}>
+                <svg ref={barcodeRef}></svg>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 15, marginTop: 20 }}>
+              {/* PRINT */}
+              <button
+                style={exportBlue}
+                onClick={() => {
+                  const content = printRef.current.innerHTML;
+                  const win = window.open("", "", "width=600,height=600");
+
+                  win.document.write(`
+              <html>
+                <body style="text-align:center;font-family:Arial;padding:30px">
+                  ${content}
+                </body>
+              </html>
+            `);
+
+                  win.document.close();
+                  win.print();
+                }}
+              >
+                Print
+              </button>
+
+              {/* DOWNLOAD */}
+              <button
+                style={exportGreen}
+                onClick={() => {
+                  const svg = barcodeRef.current;
+                  if (!svg) return;
+
+                  const serializer = new XMLSerializer();
+                  const source = serializer.serializeToString(svg);
+
+                  const svgBlob = new Blob([source], {
+                    type: "image/svg+xml;charset=utf-8",
+                  });
+
+                  const url = URL.createObjectURL(svgBlob);
+
+                  const img = new Image();
+                  img.onload = function () {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = img.width * 2;
+                    canvas.height = img.height * 2;
+
+                    const ctx = canvas.getContext("2d");
+                    ctx.fillStyle = "#ffffff";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    ctx.scale(2, 2);
+                    ctx.drawImage(img, 0, 0);
+
+                    const pngFile = canvas.toDataURL("image/png");
+
+                    const downloadLink = document.createElement("a");
+                    downloadLink.download = `${selectedPlayer.nama}-${selectedPlayer.barcode}.png`;
+                    downloadLink.href = pngFile;
+                    downloadLink.click();
+
+                    URL.revokeObjectURL(url);
+                  };
+
+                  img.src = url;
+                }}
+              >
+                Download
+              </button>
+
+              {/* CLOSE */}
+              <button
+                style={addRoundBtn}
+                onClick={() => setSelectedPlayer(null)}
+              >
+                Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}
