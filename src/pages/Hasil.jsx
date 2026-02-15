@@ -46,6 +46,9 @@ export default function Hasil() {
   const [showKuponModal, setShowKuponModal] = useState(false);
   const [kuponData, setKuponData] = useState(null);
 
+  const [editTarget, setEditTarget] = useState(null);
+  // format: { rowIndex, columnKey }
+
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
   const codeReader = useRef(null);
@@ -58,10 +61,24 @@ export default function Hasil() {
 
   /* ================= ISI SLOT ================= */
   const isiSlot = async (player) => {
-    const colCount = columns.length;
-    const rowIndex = Math.floor(currentIndex / colCount);
-    const colIndex = currentIndex % colCount;
-    const columnKey = columns[colIndex];
+    let rowIndex;
+    let columnKey;
+
+    // =====================
+    // MODE EDIT
+    // =====================
+    if (editTarget) {
+      rowIndex = editTarget.rowIndex;
+      columnKey = editTarget.columnKey;
+    } else {
+      // =====================
+      // MODE NORMAL (SCAN BARU)
+      // =====================
+      const colCount = columns.length;
+      rowIndex = Math.floor(currentIndex / colCount);
+      const colIndex = currentIndex % colCount;
+      columnKey = columns[colIndex];
+    }
 
     const updatedRounds = rounds.map((r) => {
       if (r.id === selectedRound) {
@@ -70,10 +87,10 @@ export default function Hasil() {
         if (!newGrid[rowIndex]) {
           const newRow = { no: rowIndex + 1 };
           columns.forEach((col) => (newRow[col] = null));
-
           newGrid[rowIndex] = newRow;
         }
 
+        // 🔥 INI YANG MENGGANTI SLOT
         newGrid[rowIndex][columnKey] = player;
 
         return { ...r, grid: newGrid };
@@ -83,7 +100,6 @@ export default function Hasil() {
 
     setRounds(updatedRounds);
 
-    // ✅ SAVE KE DATABASE
     await window.api.saveSlot({
       roundId: selectedRound,
       rowIndex,
@@ -91,20 +107,23 @@ export default function Hasil() {
       playerId: player.id,
     });
 
-    // ================== BUAT DATA KUPON ==================
-    const trackNumber = rowIndex + 1;
-
     setKuponData({
       nama: player.nama,
       team: player.namaTim,
       round: selectedRound,
-      track: trackNumber,
+      track: rowIndex + 1,
       lane: columnKey,
     });
 
     setShowKuponModal(true);
 
-    setCurrentIndex((prev) => prev + 1);
+    // 🔥 HANYA TAMBAH INDEX JIKA BUKAN EDIT
+    if (!editTarget) {
+      setCurrentIndex((prev) => prev + 1);
+    }
+
+    // Reset edit mode
+    setEditTarget(null);
   };
 
   /* ================= HANDLE BARCODE RESULT ================= */
@@ -419,14 +438,18 @@ export default function Hasil() {
                     onClick={() => {
                       if (!row[col]) return;
 
-                      const colIndex = columns.indexOf(col);
-                      const trackNumber = row.no; // heat = nomor baris
+                      const rowIndex = row.no - 1;
+
+                      setEditTarget({
+                        rowIndex,
+                        columnKey: col,
+                      });
 
                       setKuponData({
                         nama: row[col].nama,
                         team: row[col].namaTim,
                         round: selectedRound,
-                        track: trackNumber,
+                        track: row.no,
                         lane: col,
                       });
 
@@ -643,6 +666,7 @@ export default function Hasil() {
             </div>
 
             <div style={thermalButtonWrapper}>
+              {/* PRINT */}
               <button
                 style={thermalPrintBtn}
                 onClick={() => {
@@ -675,9 +699,29 @@ export default function Hasil() {
                 🖨 Print Thermal
               </button>
 
+              {/* ✏ EDIT */}
+              <button
+                style={{
+                  ...thermalPrintBtn,
+                  background: "linear-gradient(135deg,#f59e0b,#d97706)",
+                  boxShadow: "0 4px 12px rgba(217,119,6,0.3)",
+                }}
+                onClick={() => {
+                  setShowKuponModal(false);
+                  setShowScanModal(true);
+                  setTimeout(startCamera, 300);
+                }}
+              >
+                ✏ Edit Slot
+              </button>
+
+              {/* CLOSE */}
               <button
                 style={thermalCloseBtn}
-                onClick={() => setShowKuponModal(false)}
+                onClick={() => {
+                  setEditTarget(null);
+                  setShowKuponModal(false);
+                }}
               >
                 ✕ Tutup
               </button>
