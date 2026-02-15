@@ -43,12 +43,16 @@ export default function Hasil() {
 
   const [showScanModal, setShowScanModal] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [showKuponModal, setShowKuponModal] = useState(false);
+  const [kuponData, setKuponData] = useState(null);
 
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
   const codeReader = useRef(null);
   const barcodeRef = useRef(null);
   const printRef = useRef(null);
+
+  const thermalRef = useRef(null);
 
   const roundAktif = rounds.find((r) => r.id === selectedRound);
 
@@ -86,6 +90,19 @@ export default function Hasil() {
       columnKey,
       playerId: player.id,
     });
+
+    // ================== BUAT DATA KUPON ==================
+    const trackNumber = rowIndex + 1;
+
+    setKuponData({
+      nama: player.nama,
+      team: player.namaTim,
+      round: selectedRound,
+      track: trackNumber,
+      lane: columnKey,
+    });
+
+    setShowKuponModal(true);
 
     setCurrentIndex((prev) => prev + 1);
   };
@@ -399,7 +416,22 @@ export default function Hasil() {
                       ...tdStyle,
                       cursor: row[col] ? "pointer" : "default",
                     }}
-                    onClick={() => row[col] && setSelectedPlayer(row[col])}
+                    onClick={() => {
+                      if (!row[col]) return;
+
+                      const colIndex = columns.indexOf(col);
+                      const trackNumber = row.no; // heat = nomor baris
+
+                      setKuponData({
+                        nama: row[col].nama,
+                        team: row[col].namaTim,
+                        round: selectedRound,
+                        track: trackNumber,
+                        lane: col,
+                      });
+
+                      setShowKuponModal(true);
+                    }}
                   >
                     {row[col] ? row[col].namaTim : "-"}
                   </td>
@@ -549,6 +581,73 @@ export default function Hasil() {
           </div>
         </div>
       )}
+      {showKuponModal && kuponData && (
+        <div style={modalOverlay}>
+          <div style={thermalModalBox}>
+            <div ref={thermalRef} style={thermalWrapper}>
+              <div style={thermalHeader}>
+                <div style={thermalTitle}>KUPON BABAK {kuponData.round}</div>
+              </div>
+
+              <div style={thermalDivider} />
+
+              <div style={thermalName}>{kuponData.nama}</div>
+              <div style={thermalTeam}>{kuponData.team}</div>
+
+              <div style={thermalDivider} />
+
+              <div style={thermalTrack}>
+                {kuponData.track} - {kuponData.lane}
+              </div>
+
+              <div style={thermalDivider} />
+
+              <div style={thermalFooter}>Race System</div>
+            </div>
+
+            <div style={{ marginTop: 20 }}>
+              <button
+                style={exportBlue}
+                onClick={() => {
+                  const content = thermalRef.current.innerHTML;
+                  const win = window.open("", "", "width=400,height=600");
+
+                  win.document.write(`
+              <html>
+                <head>
+                  <style>
+                    body {
+                      margin:0;
+                      font-family: monospace;
+                      text-align:center;
+                    }
+                  </style>
+                </head>
+                <body>
+                  ${content}
+                </body>
+              </html>
+            `);
+
+                  win.document.close();
+                  win.focus();
+                  win.print();
+                  win.close();
+                }}
+              >
+                Print Thermal
+              </button>
+
+              <button
+                style={addRoundBtn}
+                onClick={() => setShowKuponModal(false)}
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -656,4 +755,68 @@ const modalBox = {
   padding: "30px",
   borderRadius: "16px",
   width: "400px",
+};
+const kuponCard = {
+  border: "2px solid black",
+  padding: "20px",
+  width: "250px",
+  textAlign: "center",
+};
+
+const kuponSide = {
+  border: "2px solid black",
+  padding: "20px",
+  width: "200px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+const thermalModalBox = {
+  background: "white",
+  padding: "30px",
+  borderRadius: "16px",
+  width: "300px",
+  textAlign: "center",
+};
+
+const thermalWrapper = {
+  width: "240px", // cocok untuk 58mm
+  margin: "0 auto",
+  fontFamily: "monospace",
+};
+
+const thermalHeader = {
+  fontSize: "18px",
+  fontWeight: "bold",
+};
+
+const thermalTitle = {
+  fontSize: "18px",
+  letterSpacing: "1px",
+};
+
+const thermalDivider = {
+  borderTop: "1px dashed black",
+  margin: "10px 0",
+};
+
+const thermalName = {
+  fontSize: "20px",
+  fontWeight: "bold",
+};
+
+const thermalTeam = {
+  fontSize: "14px",
+  marginTop: "4px",
+};
+
+const thermalTrack = {
+  fontSize: "28px",
+  fontWeight: "bold",
+  margin: "10px 0",
+};
+
+const thermalFooter = {
+  fontSize: "12px",
+  marginTop: "10px",
 };
