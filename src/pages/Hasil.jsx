@@ -23,8 +23,13 @@ const alphabet = Array.from({ length: 26 }, (_, i) =>
 );
 
 export default function Hasil() {
-  const [maxColumn, setMaxColumn] = useState("I");
-  const columns = useMemo(() => generateColumns(maxColumn), [maxColumn]);
+  const [totalTrack, setTotalTrack] = useState(2);
+
+  const columns = useMemo(() => {
+    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+    const totalColumns = totalTrack * 3;
+    return letters.slice(0, totalColumns);
+  }, [totalTrack]);
 
   const createEmptyRound = (roundNumber) => ({
     id: roundNumber,
@@ -312,15 +317,16 @@ export default function Hasil() {
 
       <div style={controlCard}>
         <div style={controlLeft}>
-          <label style={labelStyle}>Max Kolom</label>
+          <label style={labelStyle}>Total Track</label>
+
           <select
-            value={maxColumn}
-            onChange={(e) => setMaxColumn(e.target.value)}
+            value={totalTrack}
+            onChange={(e) => setTotalTrack(Number(e.target.value))}
             style={selectStyle}
           >
-            {alphabet.map((letter) => (
-              <option key={letter} value={letter}>
-                {letter}
+            {[1, 2, 3, 4, 5, 6].map((num) => (
+              <option key={num} value={num}>
+                {num} Track
               </option>
             ))}
           </select>
