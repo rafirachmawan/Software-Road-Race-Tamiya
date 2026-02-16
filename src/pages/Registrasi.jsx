@@ -224,7 +224,7 @@ svg {
         const teamY = y + cardHeight * 0.5;
         const namaY = y + cardHeight * 0.65;
 
-        const barcodeY = y + cardHeight * 0.75;
+        const barcodeY = y + cardHeight * 0.79;
 
         doc.setFontSize(14);
         doc.text(team.namaTim, x + cardWidth / 2, teamY, { align: "center" });
