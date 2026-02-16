@@ -221,15 +221,16 @@ svg {
         doc.addImage(layoutImage, "JPEG", x, y, cardWidth, cardHeight);
 
         // 🎯 POSISI TEXT (atur kalau mau geser)
-        const namaY = y + cardHeight * 0.5;
-        const teamY = y + cardHeight * 0.65;
+        const teamY = y + cardHeight * 0.5;
+        const namaY = y + cardHeight * 0.65;
+
         const barcodeY = y + cardHeight * 0.75;
 
-        doc.setFontSize(10);
-        doc.text(p.nama, x + cardWidth / 2, namaY, { align: "center" });
-
-        doc.setFontSize(8);
+        doc.setFontSize(14);
         doc.text(team.namaTim, x + cardWidth / 2, teamY, { align: "center" });
+
+        doc.setFontSize(14);
+        doc.text(p.nama, x + cardWidth / 2, namaY, { align: "center" });
 
         // 📦 Generate Barcode
         const canvas = document.createElement("canvas");
