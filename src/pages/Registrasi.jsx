@@ -185,7 +185,8 @@ svg {
       format: "a4",
     });
 
-    const pageWidth = 297;
+    const pageWidth = 297; // A4 landscape width
+    const pageHeight = 210;
 
     const img = new Image();
     img.src = layoutImage;
@@ -193,34 +194,43 @@ svg {
     img.onload = () => {
       const imgRatio = img.width / img.height;
 
-      const cardHeight = 55; // 5.5 cm
-      const cardWidth = cardHeight * imgRatio;
+      // ================================
+      // 🔥 FULL 5 KOLOM x 2 BARIS
+      // ================================
 
-      const gap = 10;
+      const marginSide = 5; // margin kiri kanan kecil
+      const usableWidth = pageWidth - marginSide * 2;
 
-      const totalWidth = cardWidth * 2 + gap;
-      const startX = (pageWidth - totalWidth) / 2;
+      const columns = 5; // 5 kartu per baris
+      const rows = 2;
 
-      let x = startX;
-      let y = 25;
+      const cardWidth = usableWidth / columns;
+      const cardHeight = cardWidth / imgRatio;
+
+      const gapY = 5; // jarak antar baris
+
+      let x = marginSide;
+      let y = 10;
+
       let col = 0;
+      let row = 0;
 
-      team.pemain.forEach((p) => {
-        // 🖼️ Layout
+      team.pemain.slice(0, 10).forEach((p) => {
+        // 🖼️ Layout Background
         doc.addImage(layoutImage, "JPEG", x, y, cardWidth, cardHeight);
 
-        // 🎯 POSISI MANUAL (atur sendiri di sini)
-        const namaY = y + 28; // ubah angka ini , naik kurangin angkanya
-        const teamY = y + 36.5; // ubah angka ini
-        const barcodeY = y + 42; // ubah angka ini
-
-        doc.setFontSize(12);
-        doc.text(p.nama, x + cardWidth / 2, namaY, { align: "center" });
+        // 🎯 POSISI TEXT (atur kalau mau geser)
+        const namaY = y + cardHeight * 0.5;
+        const teamY = y + cardHeight * 0.63;
+        const barcodeY = y + cardHeight * 0.75;
 
         doc.setFontSize(10);
+        doc.text(p.nama, x + cardWidth / 2, namaY, { align: "center" });
+
+        doc.setFontSize(8);
         doc.text(team.namaTim, x + cardWidth / 2, teamY, { align: "center" });
 
-        // 📦 Barcode
+        // 📦 Generate Barcode
         const canvas = document.createElement("canvas");
 
         JsBarcode(canvas, p.barcode, {
@@ -241,14 +251,19 @@ svg {
           8,
         );
 
+        // ======================
+        // GRID SYSTEM 5 x 2
+        // ======================
+
         col++;
 
-        if (col === 2) {
+        if (col === columns) {
           col = 0;
-          x = startX;
-          y += cardHeight + gap;
+          row++;
+          x = marginSide;
+          y += cardHeight + gapY;
         } else {
-          x += cardWidth + gap;
+          x += cardWidth;
         }
       });
 
