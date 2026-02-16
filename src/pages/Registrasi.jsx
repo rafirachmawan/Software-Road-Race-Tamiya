@@ -14,6 +14,7 @@ export default function Registrasi() {
 
   const barcodeRef = useRef(null);
   const printRef = useRef(null);
+  const fileInputRef = useRef(null); // ✅ TAMBAHAN BARU
 
   /* ================= LOAD DATA ================= */
   useEffect(() => {
@@ -221,7 +222,7 @@ svg {
 
         // 🎯 POSISI TEXT (atur kalau mau geser)
         const namaY = y + cardHeight * 0.5;
-        const teamY = y + cardHeight * 0.63;
+        const teamY = y + cardHeight * 0.65;
         const barcodeY = y + cardHeight * 0.75;
 
         doc.setFontSize(10);
@@ -382,7 +383,29 @@ svg {
 
       <div style={cardStyle}>
         <h3>Upload Layout ID Card</h3>
-        <input type="file" accept="image/*" onChange={handleLayoutUpload} />
+
+        <div style={uploadWrapper}>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleLayoutUpload}
+            ref={fileInputRef}
+            style={{ display: "none" }}
+          />
+
+          <button
+            style={uploadButton}
+            onClick={() => fileInputRef.current.click()}
+          >
+            📁 Pilih Layout
+          </button>
+
+          <span style={fileNameText}>
+            {layoutImage
+              ? "✅ Layout berhasil dipilih"
+              : "Belum ada file dipilih"}
+          </span>
+        </div>
       </div>
 
       {/* LIST */}
@@ -593,6 +616,32 @@ const closeBtn = {
   borderRadius: "8px",
   cursor: "pointer",
 };
+const uploadWrapper = {
+  display: "flex",
+  alignItems: "center",
+  gap: "20px",
+  marginTop: "15px",
+};
+
+const uploadButton = {
+  padding: "12px 22px",
+  background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+  color: "white",
+  border: "none",
+  borderRadius: "12px",
+  cursor: "pointer",
+  fontWeight: "600",
+  fontSize: "14px",
+  boxShadow: "0 6px 18px rgba(37,99,235,0.4)",
+  transition: "all 0.2s ease",
+};
+
+const fileNameText = {
+  fontSize: "14px",
+  color: "#475569",
+  fontWeight: "500",
+};
+
 const style = document.createElement("style");
 style.innerHTML = `
 @media print {
