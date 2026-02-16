@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import JsBarcode from "jsbarcode";
+import { jsPDF } from "jspdf";
 
 export default function Registrasi() {
   const [teams, setTeams] = useState([]);
@@ -9,6 +10,7 @@ export default function Registrasi() {
 
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [editNama, setEditNama] = useState("");
+  const [layoutImage, setLayoutImage] = useState(null);
 
   const barcodeRef = useRef(null);
   const printRef = useRef(null);
@@ -95,15 +97,163 @@ export default function Registrasi() {
     const win = window.open("", "", "width=600,height=600");
 
     win.document.write(`
-      <html>
-        <body style="text-align:center;font-family:Arial;padding:30px">
-          ${content}
-        </body>
-      </html>
+    @page {
+  size: A4;
+  margin: 0;
+}
+
+html, body {
+  width: 210mm;
+  height: 297mm;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 10mm;
+  box-sizing: border-box;
+}
+
+.container {
+  width: 190mm;
+  display: grid;
+  grid-template-columns: repeat(2, 90mm);
+  grid-auto-rows: 55mm;
+  gap: 10mm;
+  justify-content: center;
+}
+
+.card {
+  position: relative;
+  width: 90mm;
+  height: 55mm;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  page-break-inside: avoid;
+}
+
+.content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.nama {
+  position: absolute;
+  top: 48%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-weight: bold;
+  font-size: 14px;
+  color: black;
+}
+
+.tim {
+  position: absolute;
+  top: 60%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: black;
+}
+
+svg {
+  position: absolute;
+  bottom: 5mm;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
     `);
 
     win.document.close();
     win.print();
+  };
+
+  const handlePrintTeam = (team) => {
+    if (!layoutImage) {
+      alert("Upload layout dulu!");
+      return;
+    }
+
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4",
+    });
+
+    const pageWidth = 297;
+
+    const img = new Image();
+    img.src = layoutImage;
+
+    img.onload = () => {
+      const imgRatio = img.width / img.height;
+
+      const cardHeight = 55; // 5.5 cm
+      const cardWidth = cardHeight * imgRatio;
+
+      const gap = 10;
+
+      const totalWidth = cardWidth * 2 + gap;
+      const startX = (pageWidth - totalWidth) / 2;
+
+      let x = startX;
+      let y = 25;
+      let col = 0;
+
+      team.pemain.forEach((p) => {
+        // 🖼️ Layout
+        doc.addImage(layoutImage, "JPEG", x, y, cardWidth, cardHeight);
+
+        // 🎯 POSISI MANUAL (atur sendiri di sini)
+        const namaY = y + 28; // ubah angka ini , naik kurangin angkanya
+        const teamY = y + 36.5; // ubah angka ini
+        const barcodeY = y + 42; // ubah angka ini
+
+        doc.setFontSize(12);
+        doc.text(p.nama, x + cardWidth / 2, namaY, { align: "center" });
+
+        doc.setFontSize(10);
+        doc.text(team.namaTim, x + cardWidth / 2, teamY, { align: "center" });
+
+        // 📦 Barcode
+        const canvas = document.createElement("canvas");
+
+        JsBarcode(canvas, p.barcode, {
+          format: "CODE128",
+          width: 2,
+          height: 40,
+          displayValue: false,
+        });
+
+        const barcodeImage = canvas.toDataURL("image/png");
+
+        doc.addImage(
+          barcodeImage,
+          "PNG",
+          x + cardWidth * 0.15,
+          barcodeY,
+          cardWidth * 0.7,
+          8,
+        );
+
+        col++;
+
+        if (col === 2) {
+          col = 0;
+          x = startX;
+          y += cardHeight + gap;
+        } else {
+          x += cardWidth + gap;
+        }
+      });
+
+      doc.output("dataurlnewwindow");
+    };
   };
 
   /* ================= DOWNLOAD BARCODE ================= */
@@ -152,6 +302,17 @@ export default function Registrasi() {
   const hapusPemain = async (id) => {
     await window.api.deletePlayer(id);
     loadTeams();
+  };
+
+  const handleLayoutUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setLayoutImage(reader.result);
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -204,11 +365,23 @@ export default function Registrasi() {
         </div>
       </div>
 
+      <div style={cardStyle}>
+        <h3>Upload Layout ID Card</h3>
+        <input type="file" accept="image/*" onChange={handleLayoutUpload} />
+      </div>
+
       {/* LIST */}
       <div style={gridPro}>
         {teams.map((team) => (
           <div key={team.id} style={teamCardPro}>
             <h3>{team.namaTim}</h3>
+
+            <button
+              onClick={() => handlePrintTeam(team)}
+              style={{ ...printBtn, marginBottom: "15px" }}
+            >
+              🖨 Print 1 Tim (A4)
+            </button>
 
             {team.pemain.map((p, index) => (
               <div key={p.id} style={playerItemPro}>
@@ -275,6 +448,7 @@ export default function Registrasi() {
           </div>
         </div>
       )}
+      <div id="print-area" style={{ display: "none" }}></div>
     </div>
   );
 }
@@ -404,3 +578,74 @@ const closeBtn = {
   borderRadius: "8px",
   cursor: "pointer",
 };
+const style = document.createElement("style");
+style.innerHTML = `
+@media print {
+
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  body {
+    margin: 0;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #print-area, #print-area * {
+    visibility: visible;
+  }
+
+  #print-area {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
+    width: 190mm;
+    padding-top: 10mm;
+  }
+
+  .container {
+    display: grid;
+    grid-template-columns: repeat(2, 90mm);
+    grid-template-rows: repeat(5, 55mm);
+    gap: 10mm;
+  }
+
+  .card {
+    width: 90mm;
+    height: 55mm;
+    position: relative;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+  }
+
+  .nama {
+    position: absolute;
+    top: 48%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-weight: bold;
+    font-size: 14px;
+  }
+
+  .tim {
+    position: absolute;
+    top: 60%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+  }
+
+  svg {
+    position: absolute;
+    bottom: 5mm;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+`;
+document.head.appendChild(style);
