@@ -226,11 +226,45 @@ svg {
 
         const barcodeY = y + cardHeight * 0.79;
 
-        doc.setFontSize(14);
-        doc.text(team.namaTim, x + cardWidth / 2, teamY, { align: "center" });
+        // ======================
+        // LABEL & VALUE TEAM
+        // ======================
+
+        // ======================
+        // LABEL & VALUE TEAM (GESER TURUN)
+        // ======================
+
+        const labelTeamY = y + cardHeight * 0.46;
+        const valueTeamY = y + cardHeight * 0.52;
+
+        doc.setFontSize(6);
+        doc.setTextColor(120);
+        doc.text("Nama Team", x + cardWidth / 2, labelTeamY, {
+          align: "center",
+        });
 
         doc.setFontSize(14);
-        doc.text(p.nama, x + cardWidth / 2, namaY, { align: "center" });
+        doc.setTextColor(0);
+        doc.text(team.namaTim, x + cardWidth / 2, valueTeamY, {
+          align: "center",
+        });
+
+        // ======================
+        // LABEL & VALUE RACER (GESER TURUN)
+        // ======================
+
+        const labelRacerY = y + cardHeight * 0.61;
+        const valueRacerY = y + cardHeight * 0.67;
+
+        doc.setFontSize(6);
+        doc.setTextColor(120);
+        doc.text("Nama Racer", x + cardWidth / 2, labelRacerY, {
+          align: "center",
+        });
+
+        doc.setFontSize(14);
+        doc.setTextColor(0);
+        doc.text(p.nama, x + cardWidth / 2, valueRacerY, { align: "center" });
 
         // 📦 Generate Barcode
         const canvas = document.createElement("canvas");
@@ -247,10 +281,10 @@ svg {
         doc.addImage(
           barcodeImage,
           "PNG",
-          x + cardWidth * 0.15,
-          barcodeY,
-          cardWidth * 0.7,
-          8,
+          x + cardWidth * 0.15, // lebih ke kiri
+          barcodeY - 4, // sedikit naik biar pas tengah
+          cardWidth * 0.7, // hampir full lebar
+          15, // lebih tinggi
         );
 
         // ======================
