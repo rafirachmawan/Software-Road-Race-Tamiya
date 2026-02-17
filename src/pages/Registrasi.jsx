@@ -238,7 +238,7 @@ svg {
 
         const valueTeamY = y + cardHeight * 0.5;
 
-        doc.setFontSize(14);
+        doc.setFontSize(16);
         doc.setTextColor(0);
         doc.text(team.namaTim, x + cardWidth / 2, valueTeamY, {
           align: "center",
@@ -250,10 +250,7 @@ svg {
 
         const valueRacerY = y + cardHeight * 0.66;
 
-        doc.setFontSize(6);
-        doc.setTextColor(120);
-
-        doc.setFontSize(14);
+        doc.setFontSize(16);
         doc.setTextColor(0);
         doc.text(p.nama, x + cardWidth / 2, valueRacerY, { align: "center" });
 
