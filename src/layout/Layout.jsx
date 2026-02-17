@@ -49,7 +49,7 @@ export default function Layout({ onLogout }) {
           />
           <SidebarLink
             to="/hasil"
-            label="Input Hasil"
+            label="Round Management"
             icon="🎯"
             collapsed={collapsed}
           />

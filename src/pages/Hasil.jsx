@@ -416,31 +416,31 @@ export default function Hasil() {
         <div style={controlLeft}>
           <label style={labelStyle}>Total Track</label>
 
-          <select
-            value={totalTrack}
-            onChange={async (e) => {
-              const newTrack = Number(e.target.value);
-
-              // update database
-              await window.api.updateRoundTrack({
-                id: selectedRound,
-                totalTrack: newTrack,
-              });
-
-              // update state local
-              setRounds((prev) =>
-                prev.map((r) =>
-                  r.id === selectedRound ? { ...r, totalTrack: newTrack } : r,
-                ),
-              );
-            }}
-          >
+          <div style={trackWrapper}>
             {[1, 2, 3, 4, 5, 6].map((num) => (
-              <option key={num} value={num}>
-                {num} Track
-              </option>
+              <button
+                key={num}
+                onClick={async () => {
+                  await window.api.updateRoundTrack({
+                    id: selectedRound,
+                    totalTrack: num,
+                  });
+
+                  setRounds((prev) =>
+                    prev.map((r) =>
+                      r.id === selectedRound ? { ...r, totalTrack: num } : r,
+                    ),
+                  );
+                }}
+                style={{
+                  ...trackButton,
+                  ...(totalTrack === num ? activeTrackButton : {}),
+                }}
+              >
+                {num}
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
         <div style={roundTabWrapper}>
@@ -1027,4 +1027,29 @@ const thermalCloseBtn = {
   fontWeight: "500",
   fontSize: "14px",
   cursor: "pointer",
+};
+const trackWrapper = {
+  display: "flex",
+  background: "#f1f5f9",
+  borderRadius: "12px",
+  padding: "4px",
+  gap: "4px",
+};
+
+const trackButton = {
+  padding: "8px 14px",
+  border: "none",
+  borderRadius: "8px",
+  background: "transparent",
+  cursor: "pointer",
+  fontWeight: "600",
+  fontSize: "14px",
+  color: "#334155",
+  transition: "all 0.2s ease",
+};
+
+const activeTrackButton = {
+  background: "#0f172a",
+  color: "white",
+  boxShadow: "0 4px 12px rgba(15,23,42,0.25)",
 };
