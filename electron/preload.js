@@ -10,26 +10,30 @@ contextBridge.exposeInMainWorld("api", {
 
   /* ================= PLAYERS ================= */
   addPlayer: (data) => ipcRenderer.invoke("add-player", data),
-  updatePlayer: (data) => ipcRenderer.invoke("update-player", data),
   deletePlayer: (id) => ipcRenderer.invoke("delete-player", id),
-  getPlayerById: (id) => ipcRenderer.invoke("get-player-by-id", id),
 
   /* ================= SCAN ================= */
   findPlayer: (barcode) => ipcRenderer.invoke("find-player", barcode),
 
-  /* ================= ROUND / SLOT ================= */
+  /* ================= ROUND MANAGEMENT ================= */
 
-  // Simpan 1 slot hasil scan
+  // Ambil semua round
+  getRounds: () => ipcRenderer.invoke("get-rounds"),
+
+  // Tambah round
+  addRound: (data) => ipcRenderer.invoke("add-round", data),
+
+  // 🔥 Update total track per round
+  updateRoundTrack: (data) => ipcRenderer.invoke("update-round-track", data),
+
+  // 🔥 DELETE ROUND (INI YANG TADI KURANG)
+  deleteRound: (id) => ipcRenderer.invoke("delete-round", id),
+
+  // Simpan slot
   saveSlot: (data) => ipcRenderer.invoke("save-slot", data),
 
-  // Ambil data per round (untuk load saat refresh)
+  // Load slot per round
   getRoundData: (roundId) => ipcRenderer.invoke("get-round-data", roundId),
-
-  // Ambil semua round (opsional future ready)
-  getAllRounds: () => ipcRenderer.invoke("get-all-rounds"),
-
-  // Reset / hapus data round tertentu
-  resetRound: (roundId) => ipcRenderer.invoke("reset-round", roundId),
 
   /* ================= DISPLAY ================= */
   openDisplay: () => ipcRenderer.send("open-display"),

@@ -50,12 +50,13 @@ function initDatabase() {
   `,
   ).run();
 
-  /* ROUNDS */
+  /* 🔥 ROUNDS (DENGAN TOTAL TRACK) */
   db.prepare(
     `
     CREATE TABLE IF NOT EXISTS rounds (
-      id INTEGER PRIMARY KEY,
-      nama TEXT
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nama TEXT UNIQUE,
+      totalTrack INTEGER DEFAULT 2
     )
   `,
   ).run();
@@ -63,17 +64,17 @@ function initDatabase() {
   /* ROUND SLOTS */
   db.prepare(
     `
-  CREATE TABLE IF NOT EXISTS round_slots (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    roundId INTEGER,
-    rowIndex INTEGER,
-    columnKey TEXT,
-    playerId INTEGER,
-    UNIQUE(roundId, rowIndex, columnKey),
-    FOREIGN KEY(roundId) REFERENCES rounds(id) ON DELETE CASCADE,
-    FOREIGN KEY(playerId) REFERENCES players(id) ON DELETE CASCADE
-  )
-`,
+    CREATE TABLE IF NOT EXISTS round_slots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      roundId INTEGER,
+      rowIndex INTEGER,
+      columnKey TEXT,
+      playerId INTEGER,
+      UNIQUE(roundId, rowIndex, columnKey),
+      FOREIGN KEY(roundId) REFERENCES rounds(id) ON DELETE CASCADE,
+      FOREIGN KEY(playerId) REFERENCES players(id) ON DELETE CASCADE
+    )
+  `,
   ).run();
 
   /* DEFAULT ADMIN */
@@ -106,10 +107,6 @@ function createMainWindow() {
   });
 
   mainWindow.loadURL("http://localhost:5173");
-
-  mainWindow.on("closed", () => {
-    mainWindow = null;
-  });
 }
 
 function createDisplayWindow() {
@@ -125,10 +122,6 @@ function createDisplayWindow() {
   });
 
   displayWindow.loadURL("http://localhost:5173/#/display-full");
-
-  displayWindow.on("closed", () => {
-    displayWindow = null;
-  });
 }
 
 /* =========================
@@ -193,9 +186,9 @@ ipcMain.handle("add-player", (event, { teamId, nama }) => {
     const result = db
       .prepare(
         `
-      INSERT INTO players (teamId, nama)
-      VALUES (?, ?)
-    `,
+        INSERT INTO players (teamId, nama)
+        VALUES (?, ?)
+      `,
       )
       .run(teamId, nama);
 
@@ -211,11 +204,11 @@ ipcMain.handle("add-player", (event, { teamId, nama }) => {
     const player = db
       .prepare(
         `
-      SELECT players.*, teams.namaTim
-      FROM players
-      JOIN teams ON players.teamId = teams.id
-      WHERE players.id = ?
-    `,
+        SELECT players.*, teams.namaTim
+        FROM players
+        JOIN teams ON players.teamId = teams.id
+        WHERE players.id = ?
+      `,
       )
       .get(playerId);
 
@@ -244,31 +237,61 @@ ipcMain.handle("find-player", (event, barcode) => {
 });
 
 /* =========================
-   SAVE SLOT (PERSIST)
+   ROUND MANAGEMENT
+========================= */
+
+ipcMain.handle("get-rounds", () => {
+  return db.prepare("SELECT * FROM rounds ORDER BY id ASC").all();
+});
+
+/* 🔥 ADD ROUND DENGAN TRACK */
+ipcMain.handle("add-round", (event, { nama, totalTrack }) => {
+  try {
+    const result = db
+      .prepare("INSERT INTO rounds (nama, totalTrack) VALUES (?, ?)")
+      .run(nama, totalTrack);
+
+    return {
+      id: result.lastInsertRowid,
+      nama,
+      totalTrack,
+    };
+  } catch {
+    return db.prepare("SELECT * FROM rounds WHERE nama = ?").get(nama);
+  }
+});
+
+ipcMain.handle("update-round-track", (event, { id, totalTrack }) => {
+  try {
+    db.prepare("UPDATE rounds SET totalTrack = ? WHERE id = ?").run(
+      totalTrack,
+      id,
+    );
+
+    return { success: true };
+  } catch (err) {
+    console.error("Update round track error:", err);
+    return { success: false };
+  }
+});
+
+ipcMain.handle("delete-round", (event, id) => {
+  db.prepare("DELETE FROM rounds WHERE id = ?").run(id);
+  return { success: true };
+});
+
+/* =========================
+   SAVE SLOT
 ========================= */
 ipcMain.handle("save-slot", (event, data) => {
   const { roundId, rowIndex, columnKey, playerId } = data;
 
   try {
-    // pastikan round ada
-    const existingRound = db
-      .prepare("SELECT * FROM rounds WHERE id = ?")
-      .get(roundId);
-
-    if (!existingRound) {
-      db.prepare("INSERT INTO rounds (id, nama) VALUES (?, ?)").run(
-        roundId,
-        `Round ${roundId}`,
-      );
-    }
-
-    // insert / replace supaya tidak duplicate
     db.prepare(
       `
-    INSERT OR REPLACE INTO round_slots
-(roundId, rowIndex, columnKey, playerId)
-VALUES (?, ?, ?, ?)
-
+      INSERT OR REPLACE INTO round_slots
+      (roundId, rowIndex, columnKey, playerId)
+      VALUES (?, ?, ?, ?)
     `,
     ).run(roundId, rowIndex, columnKey, playerId);
 
@@ -286,19 +309,19 @@ ipcMain.handle("get-round-data", (event, roundId) => {
   return db
     .prepare(
       `
-      SELECT 
-        round_slots.rowIndex,
-        round_slots.columnKey,
-        players.id,
-        players.nama,
-        players.barcode,
-        teams.namaTim
-      FROM round_slots
-      JOIN players ON round_slots.playerId = players.id
-      JOIN teams ON players.teamId = teams.id
-      WHERE round_slots.roundId = ?
-      ORDER BY round_slots.rowIndex
-      `,
+    SELECT 
+      round_slots.rowIndex,
+      round_slots.columnKey,
+      players.id,
+      players.nama,
+      players.barcode,
+      teams.namaTim
+    FROM round_slots
+    JOIN players ON round_slots.playerId = players.id
+    JOIN teams ON players.teamId = teams.id
+    WHERE round_slots.roundId = ?
+    ORDER BY round_slots.rowIndex
+  `,
     )
     .all(roundId);
 });

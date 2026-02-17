@@ -23,7 +23,20 @@ const alphabet = Array.from({ length: 26 }, (_, i) =>
 );
 
 export default function Hasil() {
-  const [totalTrack, setTotalTrack] = useState(2);
+  const [rounds, setRounds] = useState([]);
+  const [selectedRound, setSelectedRound] = useState(null);
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [showKuponModal, setShowKuponModal] = useState(false);
+  const [kuponData, setKuponData] = useState(null);
+
+  const [editTarget, setEditTarget] = useState(null);
+
+  const roundAktif = rounds.find((r) => r.id === selectedRound);
+  const totalTrack = roundAktif?.totalTrack || 2;
 
   const columns = useMemo(() => {
     const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
@@ -37,16 +50,6 @@ export default function Hasil() {
     grid: [],
   });
 
-  const [rounds, setRounds] = useState([createEmptyRound(2)]);
-  const [selectedRound, setSelectedRound] = useState(2);
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  const [showScanModal, setShowScanModal] = useState(false);
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
-  const [showKuponModal, setShowKuponModal] = useState(false);
-  const [kuponData, setKuponData] = useState(null);
-
-  const [editTarget, setEditTarget] = useState(null);
   // format: { rowIndex, columnKey }
 
   const videoRef = useRef(null);
@@ -57,7 +60,37 @@ export default function Hasil() {
 
   const thermalRef = useRef(null);
 
-  const roundAktif = rounds.find((r) => r.id === selectedRound);
+  /* ================= LOAD ROUNDS SAAT MOUNT ================= */
+  useEffect(() => {
+    loadRounds();
+  }, []);
+
+  const loadRounds = async () => {
+    const data = await window.api.getRounds();
+
+    if (!data || data.length === 0) {
+      // 🔥 DEFAULT ROUND = ROUND 2
+      const newRound = await window.api.addRound({
+        nama: "Round 2",
+        totalTrack: 2,
+      });
+
+      setRounds([{ ...newRound, grid: [] }]);
+      setSelectedRound(newRound.id);
+    } else {
+      const formatted = data.map((r) => ({
+        ...r,
+        grid: [],
+      }));
+
+      setRounds(formatted);
+
+      // 🔥 otomatis pilih Round 2 jika ada
+      const round2 = formatted.find((r) => r.nama === "Round 2");
+
+      setSelectedRound(round2 ? round2.id : formatted[0].id);
+    }
+  };
 
   /* ================= ISI SLOT ================= */
   const isiSlot = async (player) => {
@@ -227,10 +260,20 @@ export default function Hasil() {
   };
 
   /* ================= TAMBAH ROUND ================= */
-  const tambahRound = () => {
-    const newRoundNumber = rounds.length + 2;
-    setRounds([...rounds, createEmptyRound(newRoundNumber)]);
-    setSelectedRound(newRoundNumber);
+  const tambahRound = async () => {
+    const numbers = rounds.map((r) => parseInt(r.nama.replace("Round ", "")));
+
+    const maxNumber = numbers.length > 0 ? Math.max(...numbers) : 2;
+
+    const newNumber = maxNumber + 1;
+
+    const newRound = await window.api.addRound({
+      nama: `Round ${newNumber}`,
+      totalTrack: totalTrack,
+    });
+
+    setRounds((prev) => [...prev, { ...newRound, grid: [] }]);
+    setSelectedRound(newRound.id);
     setCurrentIndex(0);
   };
 
@@ -282,7 +325,9 @@ export default function Hasil() {
   };
 
   useEffect(() => {
-    loadRoundData(selectedRound);
+    if (selectedRound !== null) {
+      loadRoundData(selectedRound);
+    }
   }, [selectedRound]);
 
   useEffect(() => {
@@ -333,6 +378,22 @@ export default function Hasil() {
     setCurrentIndex(totalFilled);
   };
 
+  const hapusRound = async (roundId) => {
+    if (!confirm("Yakin ingin menghapus round ini?")) return;
+
+    await window.api.deleteRound(roundId);
+
+    const updated = rounds.filter((r) => r.id !== roundId);
+
+    setRounds(updated);
+
+    if (updated.length > 0) {
+      setSelectedRound(updated[0].id);
+    } else {
+      setSelectedRound(null);
+    }
+  };
+
   return (
     <div style={pageWrapper}>
       <div style={headerWrapper}>
@@ -357,8 +418,22 @@ export default function Hasil() {
 
           <select
             value={totalTrack}
-            onChange={(e) => setTotalTrack(Number(e.target.value))}
-            style={selectStyle}
+            onChange={async (e) => {
+              const newTrack = Number(e.target.value);
+
+              // update database
+              await window.api.updateRoundTrack({
+                id: selectedRound,
+                totalTrack: newTrack,
+              });
+
+              // update state local
+              setRounds((prev) =>
+                prev.map((r) =>
+                  r.id === selectedRound ? { ...r, totalTrack: newTrack } : r,
+                ),
+              );
+            }}
           >
             {[1, 2, 3, 4, 5, 6].map((num) => (
               <option key={num} value={num}>
@@ -370,20 +445,41 @@ export default function Hasil() {
 
         <div style={roundTabWrapper}>
           {rounds.map((r) => (
-            <button
+            <div
               key={r.id}
-              onClick={() => {
-                setSelectedRound(r.id);
-                setCurrentIndex(0);
-              }}
-              style={{
-                ...roundBtn,
-                background: selectedRound === r.id ? "#0f172a" : "#f1f5f9",
-                color: selectedRound === r.id ? "white" : "#0f172a",
-              }}
+              style={{ display: "flex", alignItems: "center", gap: 5 }}
             >
-              {r.nama}
-            </button>
+              <button
+                onClick={() => {
+                  setSelectedRound(r.id);
+                  setCurrentIndex(0);
+                }}
+                style={{
+                  ...roundBtn,
+                  background: selectedRound === r.id ? "#0f172a" : "#f1f5f9",
+                  color: selectedRound === r.id ? "white" : "#0f172a",
+                }}
+              >
+                {r.nama}
+              </button>
+
+              {/* 🔥 ROUND 2 TIDAK BOLEH DIHAPUS */}
+              {r.nama !== "Round 2" && (
+                <button
+                  onClick={() => hapusRound(r.id)}
+                  style={{
+                    background: "#ef4444",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    padding: "4px 8px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           ))}
 
           <button style={addRoundBtn} onClick={tambahRound}>
@@ -425,7 +521,7 @@ export default function Hasil() {
             </tr>
           </thead>
           <tbody>
-            {roundAktif.grid.map((row) => (
+            {roundAktif?.grid?.map((row) => (
               <tr key={row.no}>
                 <td style={tdStyle}>{row.no}</td>
                 {columns.map((col) => (
