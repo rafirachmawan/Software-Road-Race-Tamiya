@@ -1,18 +1,22 @@
 const { app, BrowserWindow, ipcMain, session } = require("electron");
 const path = require("path");
+const fs = require("fs");
 const Database = require("better-sqlite3");
 
 let mainWindow;
 let displayWindow;
-let db;
+let db = null; // 🔥 Awal kosong
+let currentDbName = null;
 
 /* =========================
-   INIT DATABASE
+   INIT DATABASE (DINAMIS)
 ========================= */
-function initDatabase() {
-  const dbPath = path.join(app.getPath("userData"), "race.db");
-  db = new Database(dbPath);
+function initDatabase(dbName) {
+  currentDbName = dbName;
 
+  const dbPath = path.join(app.getPath("userData"), dbName);
+
+  db = new Database(dbPath);
   db.pragma("foreign_keys = ON");
 
   /* USERS */
@@ -50,7 +54,7 @@ function initDatabase() {
   `,
   ).run();
 
-  /* 🔥 ROUNDS (DENGAN TOTAL TRACK) */
+  /* ROUNDS */
   db.prepare(
     `
     CREATE TABLE IF NOT EXISTS rounds (
@@ -93,8 +97,45 @@ function initDatabase() {
 }
 
 /* =========================
+   DATABASE MANAGEMENT
+========================= */
+
+ipcMain.handle("get-databases", () => {
+  const folder = app.getPath("userData");
+  const files = fs.readdirSync(folder);
+  return files.filter((file) => file.endsWith(".db"));
+});
+
+ipcMain.handle("create-database", (event, name) => {
+  const cleanName = name.replace(/\s+/g, "_");
+  const dbName = `${cleanName}.db`;
+
+  if (db) {
+    db.close();
+  }
+
+  initDatabase(dbName);
+  return { success: true };
+});
+
+ipcMain.handle("switch-database", (event, dbName) => {
+  if (db) {
+    db.close();
+  }
+
+  initDatabase(dbName);
+  return { success: true };
+});
+
+/* 🔥 Tambahan untuk persist dashboard */
+ipcMain.handle("get-current-database", () => {
+  return currentDbName;
+});
+
+/* =========================
    WINDOW
 ========================= */
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -127,8 +168,10 @@ function createDisplayWindow() {
 /* =========================
    APP READY
 ========================= */
+
 app.whenReady().then(() => {
-  initDatabase();
+  // 🔥 Tidak ada initDatabase di awal
+  // App mulai tanpa DB
 
   session.defaultSession.setPermissionRequestHandler(
     (webContents, permission, callback) => {
@@ -143,7 +186,10 @@ app.whenReady().then(() => {
 /* =========================
    LOGIN
 ========================= */
+
 ipcMain.handle("login", (event, { username, password }) => {
+  if (!db) return null;
+
   return (
     db
       .prepare(
@@ -158,9 +204,12 @@ ipcMain.handle("login", (event, { username, password }) => {
 });
 
 /* =========================
-   TEAMS + PLAYERS
+   LOGIKA LAMA (AMAN TANPA DB)
 ========================= */
+
 ipcMain.handle("get-teams", () => {
+  if (!db) return [];
+
   const teams = db.prepare("SELECT * FROM teams").all();
 
   return teams.map((team) => {
@@ -173,6 +222,8 @@ ipcMain.handle("get-teams", () => {
 });
 
 ipcMain.handle("add-team", (event, namaTim) => {
+  if (!db) return { success: false };
+
   try {
     db.prepare("INSERT INTO teams (namaTim) VALUES (?)").run(namaTim);
     return { success: true };
@@ -182,33 +233,29 @@ ipcMain.handle("add-team", (event, namaTim) => {
 });
 
 ipcMain.handle("add-player", (event, { teamId, nama }) => {
+  if (!db) return { success: false };
+
   try {
     const result = db
-      .prepare(
-        `
-        INSERT INTO players (teamId, nama)
-        VALUES (?, ?)
-      `,
-      )
+      .prepare("INSERT INTO players (teamId, nama) VALUES (?, ?)")
       .run(teamId, nama);
 
     const playerId = result.lastInsertRowid;
     const barcode = `RC-${String(playerId).padStart(5, "0")}`;
 
-    db.prepare(
-      `
-      UPDATE players SET barcode = ? WHERE id = ?
-    `,
-    ).run(barcode, playerId);
+    db.prepare("UPDATE players SET barcode = ? WHERE id = ?").run(
+      barcode,
+      playerId,
+    );
 
     const player = db
       .prepare(
         `
-        SELECT players.*, teams.namaTim
-        FROM players
-        JOIN teams ON players.teamId = teams.id
-        WHERE players.id = ?
-      `,
+      SELECT players.*, teams.namaTim
+      FROM players
+      JOIN teams ON players.teamId = teams.id
+      WHERE players.id = ?
+    `,
       )
       .get(playerId);
 
@@ -218,10 +265,9 @@ ipcMain.handle("add-player", (event, { teamId, nama }) => {
   }
 });
 
-/* =========================
-   FIND PLAYER
-========================= */
 ipcMain.handle("find-player", (event, barcode) => {
+  if (!db) return null;
+
   return (
     db
       .prepare(
@@ -236,16 +282,14 @@ ipcMain.handle("find-player", (event, barcode) => {
   );
 });
 
-/* =========================
-   ROUND MANAGEMENT
-========================= */
-
 ipcMain.handle("get-rounds", () => {
+  if (!db) return [];
   return db.prepare("SELECT * FROM rounds ORDER BY id ASC").all();
 });
 
-/* 🔥 ADD ROUND DENGAN TRACK */
 ipcMain.handle("add-round", (event, { nama, totalTrack }) => {
+  if (!db) return null;
+
   try {
     const result = db
       .prepare("INSERT INTO rounds (nama, totalTrack) VALUES (?, ?)")
@@ -262,50 +306,42 @@ ipcMain.handle("add-round", (event, { nama, totalTrack }) => {
 });
 
 ipcMain.handle("update-round-track", (event, { id, totalTrack }) => {
-  try {
-    db.prepare("UPDATE rounds SET totalTrack = ? WHERE id = ?").run(
-      totalTrack,
-      id,
-    );
+  if (!db) return { success: false };
 
-    return { success: true };
-  } catch (err) {
-    console.error("Update round track error:", err);
-    return { success: false };
-  }
+  db.prepare("UPDATE rounds SET totalTrack = ? WHERE id = ?").run(
+    totalTrack,
+    id,
+  );
+
+  return { success: true };
 });
 
 ipcMain.handle("delete-round", (event, id) => {
+  if (!db) return { success: false };
+
   db.prepare("DELETE FROM rounds WHERE id = ?").run(id);
   return { success: true };
 });
 
-/* =========================
-   SAVE SLOT
-========================= */
 ipcMain.handle("save-slot", (event, data) => {
+  if (!db) return { success: false };
+
   const { roundId, rowIndex, columnKey, playerId } = data;
 
-  try {
-    db.prepare(
-      `
-      INSERT OR REPLACE INTO round_slots
-      (roundId, rowIndex, columnKey, playerId)
-      VALUES (?, ?, ?, ?)
-    `,
-    ).run(roundId, rowIndex, columnKey, playerId);
+  db.prepare(
+    `
+    INSERT OR REPLACE INTO round_slots
+    (roundId, rowIndex, columnKey, playerId)
+    VALUES (?, ?, ?, ?)
+  `,
+  ).run(roundId, rowIndex, columnKey, playerId);
 
-    return { success: true };
-  } catch (err) {
-    console.error(err);
-    return { success: false };
-  }
+  return { success: true };
 });
 
-/* =========================
-   LOAD ROUND DATA
-========================= */
 ipcMain.handle("get-round-data", (event, roundId) => {
+  if (!db) return [];
+
   return db
     .prepare(
       `
@@ -326,10 +362,9 @@ ipcMain.handle("get-round-data", (event, roundId) => {
     .all(roundId);
 });
 
-/* =========================
-   DELETE PLAYER
-========================= */
 ipcMain.handle("delete-player", (event, id) => {
+  if (!db) return { success: false };
+
   db.prepare("DELETE FROM players WHERE id = ?").run(id);
   return { success: true };
 });
@@ -337,6 +372,7 @@ ipcMain.handle("delete-player", (event, id) => {
 /* =========================
    DISPLAY
 ========================= */
+
 ipcMain.on("open-display", () => {
   if (displayWindow) return displayWindow.focus();
   createDisplayWindow();
