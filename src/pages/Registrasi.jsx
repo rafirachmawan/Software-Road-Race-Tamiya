@@ -94,84 +94,95 @@ export default function Registrasi() {
 
   /* ================= PRINT ================= */
   const handlePrint = () => {
-    const content = printRef.current.innerHTML;
-    const win = window.open("", "", "width=600,height=600");
+    if (!layoutImage) {
+      alert("Upload layout dulu!");
+      return;
+    }
 
-    win.document.write(`
-    @page {
-  size: A4;
-  margin: 0;
-}
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4",
+    });
 
-html, body {
-  width: 210mm;
-  height: 297mm;
-  margin: 0;
-  padding: 0;
-}
+    const pageWidth = 297;
+    const pageHeight = 210;
 
-body {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding-top: 10mm;
-  box-sizing: border-box;
-}
+    const img = new Image();
+    img.src = layoutImage;
 
-.container {
-  width: 190mm;
-  display: grid;
-  grid-template-columns: repeat(2, 90mm);
-  grid-auto-rows: 55mm;
-  gap: 10mm;
-  justify-content: center;
-}
+    img.onload = () => {
+      const imgRatio = img.width / img.height;
 
-.card {
-  position: relative;
-  width: 90mm;
-  height: 55mm;
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  page-break-inside: avoid;
-}
+      // 🔥 Kita tetap pakai grid 5x2 seperti Print Team
+      const marginSide = 5;
+      const columns = 5;
+      const gapX = 4;
+      const gapY = 5;
 
-.content {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
+      const usableWidth = pageWidth - marginSide * 2 - gapX * (columns - 1);
 
-.nama {
-  position: absolute;
-  top: 48%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-weight: bold;
-  font-size: 14px;
-  color: black;
-}
+      const cardWidth = usableWidth / columns;
+      const cardHeight = cardWidth / imgRatio;
 
-.tim {
-  position: absolute;
-  top: 60%;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 12px;
-  color: black;
-}
+      const x = marginSide;
+      const y = 10;
 
-svg {
-  position: absolute;
-  bottom: 5mm;
-  left: 50%;
-  transform: translateX(-50%);
-}
+      const player = selectedPlayer;
 
-    `);
+      // 🖼️ Background Layout
+      doc.addImage(layoutImage, "JPEG", x, y, cardWidth, cardHeight);
 
-    win.document.close();
-    win.print();
+      // ======================
+      // TEAM
+      // ======================
+      const teamY = y + cardHeight * 0.5;
+
+      doc.setFontSize(16);
+      doc.text(
+        teams.find((t) => t.id === player.teamId)?.namaTim || "",
+        x + cardWidth / 2,
+        teamY,
+        { align: "center" },
+      );
+
+      // ======================
+      // NAMA RACER
+      // ======================
+      const namaY = y + cardHeight * 0.66;
+
+      doc.setFontSize(16);
+      doc.text(player.nama, x + cardWidth / 2, namaY, {
+        align: "center",
+      });
+
+      // ======================
+      // BARCODE
+      // ======================
+      const barcodeY = y + cardHeight * 0.79;
+
+      const canvas = document.createElement("canvas");
+
+      JsBarcode(canvas, player.barcode, {
+        format: "CODE128",
+        width: 2,
+        height: 40,
+        displayValue: false,
+      });
+
+      const barcodeImage = canvas.toDataURL("image/png");
+
+      doc.addImage(
+        barcodeImage,
+        "PNG",
+        x + cardWidth * 0.15,
+        barcodeY - 4,
+        cardWidth * 0.7,
+        15,
+      );
+
+      doc.output("dataurlnewwindow");
+    };
   };
 
   const handlePrintTeam = (team) => {
