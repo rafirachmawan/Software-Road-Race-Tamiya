@@ -200,15 +200,17 @@ svg {
       // ================================
 
       const marginSide = 5; // margin kiri kanan kecil
-      const usableWidth = pageWidth - marginSide * 2;
 
       const columns = 5; // 5 kartu per baris
       const rows = 2;
 
+      const gapX = 4; // 🔥 jarak samping antar card
+      const gapY = 5; // jarak antar baris
+
+      const usableWidth = pageWidth - marginSide * 2 - gapX * (columns - 1);
+
       const cardWidth = usableWidth / columns;
       const cardHeight = cardWidth / imgRatio;
-
-      const gapY = 5; // jarak antar baris
 
       let x = marginSide;
       let y = 10;
@@ -299,7 +301,7 @@ svg {
           x = marginSide;
           y += cardHeight + gapY;
         } else {
-          x += cardWidth;
+          x += cardWidth + gapX;
         }
       });
 
