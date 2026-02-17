@@ -236,14 +236,7 @@ svg {
         // LABEL & VALUE TEAM (GESER TURUN)
         // ======================
 
-        const labelTeamY = y + cardHeight * 0.46;
-        const valueTeamY = y + cardHeight * 0.52;
-
-        doc.setFontSize(6);
-        doc.setTextColor(120);
-        doc.text("Nama Team", x + cardWidth / 2, labelTeamY, {
-          align: "center",
-        });
+        const valueTeamY = y + cardHeight * 0.5;
 
         doc.setFontSize(14);
         doc.setTextColor(0);
@@ -255,14 +248,10 @@ svg {
         // LABEL & VALUE RACER (GESER TURUN)
         // ======================
 
-        const labelRacerY = y + cardHeight * 0.61;
-        const valueRacerY = y + cardHeight * 0.67;
+        const valueRacerY = y + cardHeight * 0.66;
 
         doc.setFontSize(6);
         doc.setTextColor(120);
-        doc.text("Nama Racer", x + cardWidth / 2, labelRacerY, {
-          align: "center",
-        });
 
         doc.setFontSize(14);
         doc.setTextColor(0);
