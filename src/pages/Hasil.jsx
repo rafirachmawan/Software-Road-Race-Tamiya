@@ -394,6 +394,55 @@ export default function Hasil() {
     }
   };
 
+  /* ================= TRACK COLOR GROUPING ================= */
+  const getTrackHeaderStyle = (colIndex) => {
+    const trackIndex = Math.floor(colIndex / 3);
+
+    const styles = [
+      {
+        background: "#1d4ed8", // Blue
+        color: "white",
+      },
+      {
+        background: "#0f172a", // Navy
+        color: "white",
+      },
+      {
+        background: "#059669", // Emerald
+        color: "white",
+      },
+      {
+        background: "#b45309", // Amber dark
+        color: "white",
+      },
+      {
+        background: "#7c3aed", // Violet
+        color: "white",
+      },
+      {
+        background: "#dc2626", // Red
+        color: "white",
+      },
+    ];
+
+    return styles[trackIndex] || {};
+  };
+
+  const getTrackBodyStyle = (colIndex) => {
+    const trackIndex = Math.floor(colIndex / 3);
+
+    const styles = [
+      { background: "rgba(29, 78, 216, 0.08)" }, // Blue soft
+      { background: "rgba(15, 23, 42, 0.05)" }, // Navy soft
+      { background: "rgba(5, 150, 105, 0.08)" }, // Emerald soft
+      { background: "rgba(180, 83, 9, 0.08)" }, // Amber soft
+      { background: "rgba(124, 58, 237, 0.08)" }, // Violet soft
+      { background: "rgba(220, 38, 38, 0.08)" }, // Red soft
+    ];
+
+    return styles[trackIndex] || {};
+  };
+
   return (
     <div style={pageWrapper}>
       <div style={headerWrapper}>
@@ -513,22 +562,31 @@ export default function Hasil() {
           <thead>
             <tr>
               <th style={thStyle}>NO</th>
-              {columns.map((col) => (
-                <th key={col} style={thStyle}>
+              {columns.map((col, index) => (
+                <th
+                  key={col}
+                  style={{
+                    ...thStyle,
+                    ...getTrackHeaderStyle(index),
+                  }}
+                >
                   {col}
                 </th>
               ))}
             </tr>
           </thead>
+
           <tbody>
             {roundAktif?.grid?.map((row) => (
               <tr key={row.no}>
                 <td style={tdStyle}>{row.no}</td>
-                {columns.map((col) => (
+                {columns.map((col, index) => (
                   <td
                     key={col}
                     style={{
                       ...tdStyle,
+                      ...getTrackBodyStyle(index),
+
                       cursor: row[col] ? "pointer" : "default",
                     }}
                     onClick={() => {
