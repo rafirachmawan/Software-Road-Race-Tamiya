@@ -458,7 +458,20 @@ svg {
                   </div>
                 </div>
 
-                <button onClick={() => hapusPemain(p.id)} style={deleteBtnPro}>
+                <button
+                  onClick={() => hapusPemain(p.id)}
+                  style={deleteBtnPro}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = "#fee2e2";
+                    e.target.style.color = "#ef4444";
+                    e.target.style.border = "1px solid #fecaca";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = "#ffffff";
+                    e.target.style.color = "#9ca3af";
+                    e.target.style.border = "1px solid #f3f4f6";
+                  }}
+                >
                   ✕
                 </button>
               </div>
@@ -587,13 +600,19 @@ const playerBadge = {
 const barcodeText = { fontSize: "12px", color: "#64748b" };
 
 const deleteBtnPro = {
-  background: "#fee2e2",
-  border: "none",
-  color: "#ef4444",
+  width: "30px",
+  height: "30px",
   borderRadius: "8px",
-  padding: "6px 10px",
-  cursor: "pointer",
+  border: "1px solid #f3f4f6",
+  background: "#ffffff",
+  color: "#9ca3af",
+  fontSize: "14px",
   fontWeight: "600",
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  transition: "all 0.2s ease",
 };
 
 const modalOverlay = {
