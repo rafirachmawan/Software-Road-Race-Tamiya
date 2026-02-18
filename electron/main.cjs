@@ -5,23 +5,21 @@ const Database = require("better-sqlite3");
 
 let mainWindow;
 let displayWindow;
-let db = null; // 🔥 Awal kosong
+
+let db = null; // 🔥 Event DB
+let authDb = null; // 🔐 Master DB (Login)
 let currentDbName = null;
 
 /* =========================
-   INIT DATABASE (DINAMIS)
+   INIT MASTER DB (LOGIN)
 ========================= */
-function initDatabase(dbName) {
-  currentDbName = dbName;
+function initAuthDatabase() {
+  const authPath = path.join(app.getPath("userData"), "master.db");
+  authDb = new Database(authPath);
 
-  const dbPath = path.join(app.getPath("userData"), dbName);
-
-  db = new Database(dbPath);
-  db.pragma("foreign_keys = ON");
-
-  /* USERS */
-  db.prepare(
-    `
+  authDb
+    .prepare(
+      `
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE,
@@ -29,7 +27,34 @@ function initDatabase(dbName) {
       role TEXT
     )
   `,
-  ).run();
+    )
+    .run();
+
+  const admin = authDb
+    .prepare("SELECT * FROM users WHERE username = ?")
+    .get("admin");
+
+  if (!admin) {
+    authDb
+      .prepare(
+        `
+      INSERT INTO users (username, password, role)
+      VALUES (?, ?, ?)
+    `,
+      )
+      .run("admin", "123456", "admin");
+  }
+}
+
+/* =========================
+   INIT EVENT DATABASE
+========================= */
+function initDatabase(dbName) {
+  currentDbName = dbName;
+
+  const dbPath = path.join(app.getPath("userData"), dbName);
+  db = new Database(dbPath);
+  db.pragma("foreign_keys = ON");
 
   /* TEAMS */
   db.prepare(
@@ -80,20 +105,6 @@ function initDatabase(dbName) {
     )
   `,
   ).run();
-
-  /* DEFAULT ADMIN */
-  const admin = db
-    .prepare("SELECT * FROM users WHERE username = ?")
-    .get("admin");
-
-  if (!admin) {
-    db.prepare(
-      `
-      INSERT INTO users (username, password, role)
-      VALUES (?, ?, ?)
-    `,
-    ).run("admin", "123456", "admin");
-  }
 }
 
 /* =========================
@@ -103,31 +114,26 @@ function initDatabase(dbName) {
 ipcMain.handle("get-databases", () => {
   const folder = app.getPath("userData");
   const files = fs.readdirSync(folder);
-  return files.filter((file) => file.endsWith(".db"));
+  return files.filter((file) => file.endsWith(".db") && file !== "master.db");
 });
 
 ipcMain.handle("create-database", (event, name) => {
   const cleanName = name.replace(/\s+/g, "_");
   const dbName = `${cleanName}.db`;
 
-  if (db) {
-    db.close();
-  }
+  if (db) db.close();
 
   initDatabase(dbName);
   return { success: true };
 });
 
 ipcMain.handle("switch-database", (event, dbName) => {
-  if (db) {
-    db.close();
-  }
+  if (db) db.close();
 
   initDatabase(dbName);
   return { success: true };
 });
 
-/* 🔥 Tambahan untuk persist dashboard */
 ipcMain.handle("get-current-database", () => {
   return currentDbName;
 });
@@ -170,8 +176,7 @@ function createDisplayWindow() {
 ========================= */
 
 app.whenReady().then(() => {
-  // 🔥 Tidak ada initDatabase di awal
-  // App mulai tanpa DB
+  initAuthDatabase(); // 🔐 Login selalu siap
 
   session.defaultSession.setPermissionRequestHandler(
     (webContents, permission, callback) => {
@@ -184,27 +189,25 @@ app.whenReady().then(() => {
 });
 
 /* =========================
-   LOGIN
+   LOGIN (PAKAI MASTER DB)
 ========================= */
 
 ipcMain.handle("login", (event, { username, password }) => {
-  if (!db) return null;
-
   return (
-    db
+    authDb
       .prepare(
         `
-      SELECT id, username, role
-      FROM users
-      WHERE username = ? AND password = ?
-    `,
+        SELECT id, username, role
+        FROM users
+        WHERE username = ? AND password = ?
+      `,
       )
       .get(username, password) || null
   );
 });
 
 /* =========================
-   LOGIKA LAMA (AMAN TANPA DB)
+   LOGIKA EVENT (AMAN)
 ========================= */
 
 ipcMain.handle("get-teams", () => {
@@ -251,11 +254,11 @@ ipcMain.handle("add-player", (event, { teamId, nama }) => {
     const player = db
       .prepare(
         `
-      SELECT players.*, teams.namaTim
-      FROM players
-      JOIN teams ON players.teamId = teams.id
-      WHERE players.id = ?
-    `,
+        SELECT players.*, teams.namaTim
+        FROM players
+        JOIN teams ON players.teamId = teams.id
+        WHERE players.id = ?
+      `,
       )
       .get(playerId);
 
@@ -272,11 +275,11 @@ ipcMain.handle("find-player", (event, barcode) => {
     db
       .prepare(
         `
-      SELECT players.*, teams.namaTim
-      FROM players
-      JOIN teams ON players.teamId = teams.id
-      WHERE players.barcode = ?
-    `,
+        SELECT players.*, teams.namaTim
+        FROM players
+        JOIN teams ON players.teamId = teams.id
+        WHERE players.barcode = ?
+      `,
       )
       .get(barcode.trim()) || null
   );
