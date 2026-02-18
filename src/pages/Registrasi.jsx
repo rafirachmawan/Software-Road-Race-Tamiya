@@ -41,11 +41,13 @@ export default function Registrasi() {
     if (selectedPlayer && barcodeRef.current) {
       JsBarcode(barcodeRef.current, selectedPlayer.barcode, {
         format: "CODE128",
-        width: 3, // 🔥 lebih tebal
-        height: 120, // 🔥 lebih tinggi
-        displayValue: true,
+        width: 2,
+        height: 80,
+        margin: 10,
+
+        displayValue: false,
         fontSize: 22,
-        margin: 20, // 🔥 penting untuk scanner
+
         background: "#ffffff",
       });
     }
@@ -548,9 +550,14 @@ export default function Registrasi() {
                 Update Nama
               </button>
 
-              <p style={{ marginTop: 20 }}>Barcode: {selectedPlayer.barcode}</p>
-
-              <svg ref={barcodeRef}></svg>
+              <svg
+                ref={barcodeRef}
+                style={{
+                  width: "100%",
+                  maxWidth: "420px",
+                  marginTop: "20px",
+                }}
+              ></svg>
             </div>
 
             <div style={{ display: "flex", gap: 15, marginTop: 20 }}>
@@ -733,10 +740,11 @@ const modalOverlay = {
 
 const modalBox = {
   background: "white",
-  padding: "40px",
+  padding: "30px",
   borderRadius: "16px",
   textAlign: "center",
-  minWidth: "400px",
+  width: "500px", // 🔥 fix width
+  maxWidth: "90%",
 };
 
 const printBtn = {

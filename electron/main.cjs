@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, session } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const Database = require("better-sqlite3");
+const { randomUUID } = require("crypto"); // ✅ INI
 
 let mainWindow;
 let displayWindow;
@@ -262,31 +263,29 @@ ipcMain.handle("add-player", (event, { teamId, nama }) => {
   if (!db) return { success: false };
 
   try {
+    // 🔥 BARCODE UNIK GLOBAL
+    const barcode = randomUUID();
+
     const result = db
-      .prepare("INSERT INTO players (teamId, nama) VALUES (?, ?)")
-      .run(teamId, nama);
+      .prepare("INSERT INTO players (teamId, nama, barcode) VALUES (?, ?, ?)")
+      .run(teamId, nama, barcode);
 
     const playerId = result.lastInsertRowid;
-    const barcode = `RC-${String(playerId).padStart(5, "0")}`;
-
-    db.prepare("UPDATE players SET barcode = ? WHERE id = ?").run(
-      barcode,
-      playerId,
-    );
 
     const player = db
       .prepare(
         `
-      SELECT players.*, teams.namaTim
-      FROM players
-      JOIN teams ON players.teamId = teams.id
-      WHERE players.id = ?
-    `,
+        SELECT players.*, teams.namaTim
+        FROM players
+        JOIN teams ON players.teamId = teams.id
+        WHERE players.id = ?
+        `,
       )
       .get(playerId);
 
     return { success: true, player };
-  } catch {
+  } catch (error) {
+    console.error(error);
     return { success: false };
   }
 });

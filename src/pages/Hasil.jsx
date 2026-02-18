@@ -38,6 +38,8 @@ export default function Hasil() {
   const [kuponData, setKuponData] = useState(null);
 
   const [editTarget, setEditTarget] = useState(null);
+  // 🔥 ANTI DOUBLE SCAN
+  const [scanLock, setScanLock] = useState(false);
 
   // 🔥 STATE UNTUK MODAL TAMBAH ROUND
   const [showRoundModal, setShowRoundModal] = useState(false);
@@ -190,10 +192,10 @@ export default function Hasil() {
       return;
     }
 
-    isiSlot(player);
+    await isiSlot(player);
 
-    stopCamera();
-    setShowScanModal(false);
+    // ❌ HAPUS stopCamera()
+    // ❌ HAPUS setShowScanModal(false)
   };
 
   /* ================= START CAMERA ================= */
@@ -215,9 +217,16 @@ export default function Hasil() {
       await codeReader.current.decodeFromVideoDevice(
         selectedDeviceId,
         videoRef.current,
-        (result, err) => {
-          if (result) {
-            handleBarcodeResult(result.getText());
+        async (result, err) => {
+          if (result && !scanLock) {
+            setScanLock(true);
+
+            await handleBarcodeResult(result.getText());
+
+            // 🔥 Delay supaya tidak double scan
+            setTimeout(() => {
+              setScanLock(false);
+            }, 1000);
           }
         },
       );
@@ -927,8 +936,9 @@ export default function Hasil() {
               <button
                 style={addRoundBtn}
                 onClick={() => {
-                  stopCamera();
-                  setShowScanModal(false);
+                  stopCamera(); // 🔥 Matikan kamera
+                  setShowScanModal(false); // 🔥 Tutup modal
+                  setScanLock(false); // 🔥 Reset lock scan
                 }}
               >
                 Tutup
