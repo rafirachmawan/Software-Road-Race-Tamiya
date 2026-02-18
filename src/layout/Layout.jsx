@@ -1,8 +1,10 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+
 import { useState } from "react";
 
 export default function Layout({ onLogout }) {
   const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation(); // 🔥 TAMBAHKAN INI
 
   return (
     <div style={styles.container}>
@@ -68,18 +70,20 @@ export default function Layout({ onLogout }) {
         </div>
 
         {/* LOGOUT SECTION */}
-        <div style={styles.logoutSection}>
-          <button
-            onClick={onLogout}
-            style={{
-              ...styles.logoutButton,
-              justifyContent: collapsed ? "center" : "flex-start",
-            }}
-          >
-            <span>🚪</span>
-            {!collapsed && <span style={{ marginLeft: 10 }}>Logout</span>}
-          </button>
-        </div>
+        {location.pathname === "/" && (
+          <div style={styles.logoutSection}>
+            <button
+              onClick={onLogout}
+              style={{
+                ...styles.logoutButton,
+                justifyContent: collapsed ? "center" : "flex-start",
+              }}
+            >
+              <span>🚪</span>
+              {!collapsed && <span style={{ marginLeft: 10 }}>Logout</span>}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ================= MAIN ================= */}

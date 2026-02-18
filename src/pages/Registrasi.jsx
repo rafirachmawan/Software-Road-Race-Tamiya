@@ -16,14 +16,24 @@ export default function Registrasi() {
   const printRef = useRef(null);
   const fileInputRef = useRef(null); // ✅ TAMBAHAN BARU
 
+  const [searchTeam, setSearchTeam] = useState("");
+
+  const filteredTeams = teams.filter((team) =>
+    team.namaTim.toLowerCase().includes(searchTeam.toLowerCase()),
+  );
+
   /* ================= LOAD DATA ================= */
   useEffect(() => {
     loadTeams();
   }, []);
-
   const loadTeams = async () => {
     const data = await window.api.getTeams();
-    setTeams(data);
+
+    const sorted = data.sort((a, b) =>
+      a.namaTim.localeCompare(b.namaTim, "id", { sensitivity: "base" }),
+    );
+
+    setTeams(sorted);
   };
 
   /* ================= RENDER BARCODE (FIXED) ================= */
@@ -442,9 +452,35 @@ export default function Registrasi() {
         </div>
       </div>
 
+      {/* SEARCH TEAM */}
+      <div style={searchCard}>
+        <div style={searchHeader}>
+          <h3 style={{ margin: 0 }}>🔍 Cari Tim</h3>
+          <span style={resultCount}>{filteredTeams.length} Tim ditemukan</span>
+        </div>
+
+        <div style={searchWrapper}>
+          <span style={searchIcon}>🔎</span>
+
+          <input
+            type="text"
+            placeholder="Ketik nama tim..."
+            value={searchTeam}
+            onChange={(e) => setSearchTeam(e.target.value)}
+            style={searchInput}
+          />
+
+          {searchTeam && (
+            <button onClick={() => setSearchTeam("")} style={clearBtn}>
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* LIST */}
       <div style={gridPro}>
-        {teams.map((team) => (
+        {filteredTeams.map((team) => (
           <div key={team.id} style={teamCardPro}>
             <h3>{team.namaTim}</h3>
 
@@ -547,6 +583,66 @@ const cardStyle = {
   padding: "25px",
   borderRadius: "16px",
   boxShadow: "0 8px 25px rgba(0,0,0,0.08)",
+};
+
+const searchCard = {
+  background: "linear-gradient(135deg, #f8fafc, #ffffff)",
+  padding: "25px",
+  borderRadius: "18px",
+  boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
+  border: "1px solid #f1f5f9",
+};
+
+const searchHeader = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: "15px",
+};
+
+const resultCount = {
+  fontSize: "13px",
+  fontWeight: "600",
+  color: "#64748b",
+  background: "#e2e8f0",
+  padding: "5px 10px",
+  borderRadius: "8px",
+};
+
+const searchWrapper = {
+  position: "relative",
+  display: "flex",
+  alignItems: "center",
+};
+
+const searchIcon = {
+  position: "absolute",
+  left: "14px",
+  fontSize: "14px",
+  color: "#94a3b8",
+};
+
+const searchInput = {
+  width: "100%",
+  padding: "14px 45px 14px 40px",
+  borderRadius: "12px",
+  border: "1px solid #cbd5e1",
+  fontSize: "14px",
+  outline: "none",
+  transition: "all 0.2s ease",
+};
+
+const clearBtn = {
+  position: "absolute",
+  right: "10px",
+  background: "#f1f5f9",
+  border: "none",
+  borderRadius: "8px",
+  width: "28px",
+  height: "28px",
+  cursor: "pointer",
+  fontSize: "12px",
+  color: "#64748b",
 };
 
 const formRow = {
