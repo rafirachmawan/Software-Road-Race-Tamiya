@@ -7,6 +7,8 @@ import { BrowserMultiFormatReader } from "@zxing/browser";
 
 import JsBarcode from "jsbarcode";
 
+import Select from "react-select";
+
 /* ================= GENERATE COLUMN ================= */
 const generateColumns = (endLetter = "I") => {
   const start = "A".charCodeAt(0);
@@ -35,6 +37,21 @@ export default function Hasil() {
 
   const [editTarget, setEditTarget] = useState(null);
 
+  // 🔥 STATE UNTUK MODAL TAMBAH ROUND
+  const [showRoundModal, setShowRoundModal] = useState(false);
+  const [newRoundTrack, setNewRoundTrack] = useState(2);
+
+  const [roundType, setRoundType] = useState("regular");
+
+  // 🔥 LIST TEAM UNTUK FINAL DROPDOWN
+  const [teamList, setTeamList] = useState([]);
+  // 🔥 SORT TEAM A-Z (STABLE & CASE INSENSITIVE)
+  const sortedTeamList = useMemo(() => {
+    return [...teamList].sort((a, b) =>
+      a.namaTim.localeCompare(b.namaTim, "id", { sensitivity: "base" }),
+    );
+  }, [teamList]);
+
   const roundAktif = rounds.find((r) => r.id === selectedRound);
   const totalTrack = roundAktif?.totalTrack || 2;
 
@@ -43,6 +60,12 @@ export default function Hasil() {
     const totalColumns = totalTrack * 3;
     return letters.slice(0, totalColumns);
   }, [totalTrack]);
+
+  const tableStyle = {
+    width: "100%",
+    borderCollapse: "collapse",
+    tableLayout: "fixed", // 🔥 WAJIB
+  };
 
   const createEmptyRound = (roundNumber) => ({
     id: roundNumber,
@@ -63,20 +86,16 @@ export default function Hasil() {
   /* ================= LOAD ROUNDS SAAT MOUNT ================= */
   useEffect(() => {
     loadRounds();
+    loadTeams();
   }, []);
 
   const loadRounds = async () => {
     const data = await window.api.getRounds();
 
     if (!data || data.length === 0) {
-      // 🔥 DEFAULT ROUND = ROUND 2
-      const newRound = await window.api.addRound({
-        nama: "Round 2",
-        totalTrack: 2,
-      });
-
-      setRounds([{ ...newRound, grid: [] }]);
-      setSelectedRound(newRound.id);
+      // 🔥 TIDAK ADA ROUND SAAT AWAL
+      setRounds([]);
+      setSelectedRound(null);
     } else {
       const formatted = data.map((r) => ({
         ...r,
@@ -84,12 +103,13 @@ export default function Hasil() {
       }));
 
       setRounds(formatted);
-
-      // 🔥 otomatis pilih Round 2 jika ada
-      const round2 = formatted.find((r) => r.nama === "Round 2");
-
-      setSelectedRound(round2 ? round2.id : formatted[0].id);
+      setSelectedRound(formatted[0].id);
     }
+  };
+
+  const loadTeams = async () => {
+    const teams = await window.api.getTeams();
+    if (teams) setTeamList(teams);
   };
 
   /* ================= ISI SLOT ================= */
@@ -261,20 +281,36 @@ export default function Hasil() {
 
   /* ================= TAMBAH ROUND ================= */
   const tambahRound = async () => {
-    const numbers = rounds.map((r) => parseInt(r.nama.replace("Round ", "")));
+    let namaRound;
+    let totalTrackFinal = newRoundTrack;
 
-    const maxNumber = numbers.length > 0 ? Math.max(...numbers) : 2;
+    if (roundType === "final") {
+      namaRound = "Final Round";
+      totalTrackFinal = 3; // 🔥 FINAL FIX 3 TRACK
+    } else {
+      if (rounds.length === 0) {
+        namaRound = "Round 2";
+      } else {
+        const numbers = rounds
+          .filter((r) => r.nama.includes("Round"))
+          .map((r) => parseInt(r.nama.replace("Round ", "")))
+          .filter((n) => !isNaN(n));
 
-    const newNumber = maxNumber + 1;
+        const maxNumber = numbers.length ? Math.max(...numbers) : 1;
+        namaRound = `Round ${maxNumber + 1}`;
+      }
+    }
 
     const newRound = await window.api.addRound({
-      nama: `Round ${newNumber}`,
-      totalTrack: totalTrack,
+      nama: namaRound,
+      totalTrack: totalTrackFinal,
     });
 
     setRounds((prev) => [...prev, { ...newRound, grid: [] }]);
     setSelectedRound(newRound.id);
     setCurrentIndex(0);
+    setShowRoundModal(false);
+    setRoundType("regular");
   };
 
   /* ================= EXPORT ================= */
@@ -345,7 +381,15 @@ export default function Hasil() {
   };
 
   useEffect(() => {
-    if (selectedRound !== null) {
+    if (!selectedRound) return;
+
+    const round = rounds.find((r) => r.id === selectedRound);
+
+    if (!round) return;
+
+    if (round.nama === "Final Round") {
+      loadFinalData();
+    } else {
       loadRoundData(selectedRound);
     }
   }, [selectedRound]);
@@ -396,6 +440,33 @@ export default function Hasil() {
     // hitung ulang currentIndex biar lanjut dari slot terakhir
     const totalFilled = slots.length;
     setCurrentIndex(totalFilled);
+  };
+
+  const loadFinalData = async () => {
+    const data = await window.api.getFinalSlots(selectedRound);
+
+    if (!data || data.length === 0) return;
+
+    const newFinal = JSON.parse(JSON.stringify(finalData));
+
+    data.forEach((item) => {
+      const { groupKey, laneKey, teamName } = item;
+
+      if (newFinal[groupKey]) {
+        // 🔥 HANDLE RESULT
+        if (laneKey.startsWith("result-")) {
+          const resultNumber = laneKey.replace("result-", "");
+
+          newFinal[groupKey].result[resultNumber] = teamName;
+        }
+        // 🔥 HANDLE LANE A/B/C
+        else {
+          newFinal[groupKey][laneKey] = teamName;
+        }
+      }
+    });
+
+    setFinalData(newFinal);
   };
 
   const hapusRound = async (roundId) => {
@@ -496,6 +567,133 @@ export default function Hasil() {
     return styles[trackIndex] || {};
   };
 
+  const [finalData, setFinalData] = useState({
+    "1-2-3": {
+      A: null,
+      B: null,
+      C: null,
+      result: { 1: null, 2: null, 3: null },
+    },
+    "4-5-6": {
+      A: null,
+      B: null,
+      C: null,
+      result: { 4: null, 5: null, 6: null },
+    },
+    "7-8-9": {
+      A: null,
+      B: null,
+      C: null,
+      result: { 7: null, 8: null, 9: null },
+    },
+  });
+
+  const isiFinalSlot = async (groupKey, laneKey, teamName) => {
+    const updated = {
+      ...finalData,
+      [groupKey]: {
+        ...finalData[groupKey],
+        [laneKey]: teamName,
+      },
+    };
+
+    setFinalData(updated);
+
+    // 🔥 SIMPAN KE DATABASE
+    await window.api.saveFinalSlot({
+      roundId: selectedRound,
+      groupKey,
+      laneKey,
+      teamName,
+    });
+  };
+
+  const renderFinalBox = (title, lanes, results, groupKey) => {
+    const group = finalData[groupKey];
+
+    return (
+      <div style={finalBox}>
+        <div style={finalHeader}>{title}</div>
+
+        {lanes.map((lane, i) => (
+          <div key={i} style={finalRow}>
+            <div style={finalLeft}>{lane}</div>
+
+            <div style={finalRight}>
+              <Select
+                options={sortedTeamList.map((team) => ({
+                  value: team.namaTim,
+                  label: team.namaTim,
+                }))}
+                value={
+                  group[lane]
+                    ? { value: group[lane], label: group[lane] }
+                    : null
+                }
+                onChange={(selected) =>
+                  isiFinalSlot(groupKey, lane, selected?.value || null)
+                }
+                placeholder="- Pilih Team -"
+                menuPlacement="bottom" // 🔥 PAKSA KEBAWAH
+                styles={selectFinalStyles} // 🔥 PAKAI STYLE YANG KITA BUAT
+              />
+            </div>
+          </div>
+        ))}
+
+        <div style={{ height: 20 }} />
+
+        <div style={finalHeader}>RESULT</div>
+
+        {results.map((res, i) => (
+          <div key={i} style={finalRow}>
+            <div style={finalLeft}>{res}</div>
+
+            <div style={finalRight}>
+              <Select
+                options={sortedTeamList.map((team) => ({
+                  value: team.namaTim,
+                  label: team.namaTim,
+                }))}
+                value={
+                  group.result[res]
+                    ? { value: group.result[res], label: group.result[res] }
+                    : null
+                }
+                onChange={async (selected) => {
+                  const value = selected?.value || null;
+
+                  const updated = {
+                    ...finalData,
+                    [groupKey]: {
+                      ...finalData[groupKey],
+                      result: {
+                        ...finalData[groupKey].result,
+                        [res]: value,
+                      },
+                    },
+                  };
+
+                  setFinalData(updated);
+
+                  await window.api.saveFinalSlot({
+                    roundId: selectedRound,
+                    groupKey,
+                    laneKey: `result-${res}`,
+                    teamName: value,
+                  });
+                }}
+                placeholder="- Pilih Team -"
+                menuPlacement="bottom" // 🔥 PAKSA KEBAWAH
+                styles={selectFinalStyles}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div style={pageWrapper}>
       <div style={headerWrapper}>
@@ -516,32 +714,10 @@ export default function Hasil() {
 
       <div style={controlCard}>
         <div style={controlLeft}>
-          <label style={labelStyle}>Total Track</label>
-
-          <div style={trackWrapper}>
-            {[1, 2, 3, 4, 5, 6].map((num) => (
-              <button
-                key={num}
-                onClick={async () => {
-                  await window.api.updateRoundTrack({
-                    id: selectedRound,
-                    totalTrack: num,
-                  });
-
-                  setRounds((prev) =>
-                    prev.map((r) =>
-                      r.id === selectedRound ? { ...r, totalTrack: num } : r,
-                    ),
-                  );
-                }}
-                style={{
-                  ...trackButton,
-                  ...(totalTrack === num ? activeTrackButton : {}),
-                }}
-              >
-                {num}
-              </button>
-            ))}
+          <div style={controlLeft}>
+            <label style={labelStyle}>
+              Total Track: {roundAktif ? roundAktif.totalTrack : "-"}
+            </label>
           </div>
         </div>
 
@@ -558,8 +734,19 @@ export default function Hasil() {
                 }}
                 style={{
                   ...roundBtn,
-                  background: selectedRound === r.id ? "#0f172a" : "#f1f5f9",
-                  color: selectedRound === r.id ? "white" : "#0f172a",
+                  background:
+                    selectedRound === r.id
+                      ? r.nama === "Final Round"
+                        ? "#7c3aed"
+                        : "#0f172a"
+                      : "#f1f5f9",
+                  color:
+                    selectedRound === r.id
+                      ? "white"
+                      : r.nama === "Final Round"
+                        ? "#7c3aed"
+                        : "#0f172a",
+                  fontWeight: r.nama === "Final Round" ? "700" : "500",
                 }}
               >
                 {r.nama}
@@ -584,7 +771,7 @@ export default function Hasil() {
             </div>
           ))}
 
-          <button style={addRoundBtn} onClick={tambahRound}>
+          <button style={addRoundBtn} onClick={() => setShowRoundModal(true)}>
             + Tambah
           </button>
         </div>
@@ -609,83 +796,96 @@ export default function Hasil() {
         </button>
       </div>
 
-      {/* TABLE */}
-      <div style={tableCard}>
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>NO</th>
-              {columns.map((col, index) => (
-                <th
-                  key={col}
-                  style={{
-                    ...thStyle,
-                    ...getTrackHeaderStyle(index),
-                  }}
-                >
-                  {col}
-                </th>
-              ))}
-            </tr>
-          </thead>
+      {/* FINAL LAYOUT */}
+      {roundAktif?.nama === "Final Round" ? (
+        <div style={finalWrapper}>
+          {renderFinalBox(
+            "PEREBUTAN JUARA 1-2-3",
+            ["A", "B", "C"],
+            ["1", "2", "3"],
+            "1-2-3",
+          )}
 
-          <tbody>
-            {roundAktif?.grid?.map((row) => (
-              <tr key={row.no}>
-                <td style={tdStyle}>{row.no}</td>
+          {renderFinalBox(
+            "PEREBUTAN JUARA 4-5-6",
+            ["A", "B", "C"],
+            ["4", "5", "6"],
+            "4-5-6",
+          )}
+
+          {renderFinalBox(
+            "PEREBUTAN JUARA 7-8-9",
+            ["A", "B", "C"],
+            ["7", "8", "9"],
+            "7-8-9",
+          )}
+        </div>
+      ) : (
+        <div style={tableCard}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={{ ...thStyle, width: "60px" }}>NO</th>
                 {columns.map((col, index) => (
-                  <td
+                  <th
                     key={col}
                     style={{
-                      ...tdStyle,
-                      ...getTrackBodyStyle(index),
-
-                      cursor: row[col] ? "pointer" : "default",
+                      ...thStyle,
+                      ...getTrackHeaderStyle(index),
+                      width: `${100 / (columns.length + 1)}%`,
                     }}
-                    onClick={() => {
-                      const rowIndex = row.no - 1;
+                  >
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
 
-                      // ==========================
-                      // JIKA SLOT SUDAH ADA ISI
-                      // ==========================
-                      if (row[col]) {
+            <tbody>
+              {roundAktif?.grid?.map((row) => (
+                <tr key={row.no}>
+                  <td style={tdStyle}>{row.no}</td>
+                  {columns.map((col, index) => (
+                    <td
+                      key={col}
+                      style={{
+                        ...tdStyle,
+                        ...getTrackBodyStyle(index),
+                        cursor: row[col] ? "pointer" : "default",
+                      }}
+                      onClick={() => {
+                        if (!row[col]) return;
+
+                        const player = row[col];
+
+                        setSelectedPlayer(player);
+
                         setEditTarget({
-                          rowIndex,
+                          rowIndex: row.no - 1,
                           columnKey: col,
                         });
 
+                        // 🔥 INI YANG KURANG
                         setKuponData({
-                          nama: row[col].nama,
-                          team: row[col].namaTim,
+                          nama: player.nama,
+                          team: player.namaTim,
                           round: selectedRound,
                           track: row.no,
                           lane: col,
                         });
 
                         setShowKuponModal(true);
-                      }
-                      // ==========================
-                      // JIKA SLOT KOSONG
-                      // ==========================
-                      else {
-                        setEditTarget({
-                          rowIndex,
-                          columnKey: col,
-                        });
-
-                        setShowScanModal(true);
-                        setTimeout(startCamera, 300);
-                      }
-                    }}
-                  >
-                    {row[col] ? row[col].namaTim : "-"}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                      }}
+                    >
+                      {row[col] ? row[col].namaTim : "-"}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* MODAL */}
       {showScanModal && (
@@ -729,140 +929,7 @@ export default function Hasil() {
           </div>
         </div>
       )}
-      {selectedPlayer && (
-        <div style={modalOverlay}>
-          <div style={modalBox}>
-            <div ref={printRef}>
-              <h3>Detail Peserta</h3>
 
-              <p>
-                <strong>Nama:</strong> {selectedPlayer.nama}
-              </p>
-              <p>
-                <strong>Tim:</strong> {selectedPlayer.namaTim}
-              </p>
-
-              <div style={thermalButtonWrapper}>
-                <button
-                  style={thermalPrintBtn}
-                  onClick={() => {
-                    const content = thermalRef.current.innerHTML;
-                    const win = window.open("", "", "width=400,height=600");
-
-                    win.document.write(`
-        <html>
-          <head>
-            <style>
-              body {
-                margin:0;
-                font-family: monospace;
-                text-align:center;
-              }
-            </style>
-          </head>
-          <body>
-            ${content}
-          </body>
-        </html>
-      `);
-
-                    win.document.close();
-                    win.focus();
-                    win.print();
-                    win.close();
-                  }}
-                >
-                  🖨 Print Thermal
-                </button>
-
-                <button
-                  style={thermalCloseBtn}
-                  onClick={() => setShowKuponModal(false)}
-                >
-                  ✕ Tutup
-                </button>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 15, marginTop: 20 }}>
-              {/* PRINT */}
-              <button
-                style={exportBlue}
-                onClick={() => {
-                  const content = printRef.current.innerHTML;
-                  const win = window.open("", "", "width=600,height=600");
-
-                  win.document.write(`
-              <html>
-                <body style="text-align:center;font-family:Arial;padding:30px">
-                  ${content}
-                </body>
-              </html>
-            `);
-
-                  win.document.close();
-                  win.print();
-                }}
-              >
-                Print
-              </button>
-
-              {/* DOWNLOAD */}
-              <button
-                style={exportGreen}
-                onClick={() => {
-                  const svg = barcodeRef.current;
-                  if (!svg) return;
-
-                  const serializer = new XMLSerializer();
-                  const source = serializer.serializeToString(svg);
-
-                  const svgBlob = new Blob([source], {
-                    type: "image/svg+xml;charset=utf-8",
-                  });
-
-                  const url = URL.createObjectURL(svgBlob);
-
-                  const img = new Image();
-                  img.onload = function () {
-                    const canvas = document.createElement("canvas");
-                    canvas.width = img.width * 2;
-                    canvas.height = img.height * 2;
-
-                    const ctx = canvas.getContext("2d");
-                    ctx.fillStyle = "#ffffff";
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                    ctx.scale(2, 2);
-                    ctx.drawImage(img, 0, 0);
-
-                    const pngFile = canvas.toDataURL("image/png");
-
-                    const downloadLink = document.createElement("a");
-                    downloadLink.download = `${selectedPlayer.nama}-${selectedPlayer.barcode}.png`;
-                    downloadLink.href = pngFile;
-                    downloadLink.click();
-
-                    URL.revokeObjectURL(url);
-                  };
-
-                  img.src = url;
-                }}
-              >
-                Download
-              </button>
-
-              {/* CLOSE */}
-              <button
-                style={addRoundBtn}
-                onClick={() => setSelectedPlayer(null)}
-              >
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {showKuponModal && kuponData && (
         <div style={modalOverlay}>
           <div style={thermalModalBox}>
@@ -966,9 +1033,103 @@ export default function Hasil() {
           </div>
         </div>
       )}
+      {showRoundModal && (
+        <div style={modalOverlay}>
+          <div style={modalBox}>
+            <h3>Pilih Jenis Round</h3>
+
+            <div style={{ display: "flex", gap: 15, marginTop: 15 }}>
+              <button
+                onClick={() => setRoundType("regular")}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                  background: roundType === "regular" ? "#0f172a" : "#f1f5f9",
+                  color: roundType === "regular" ? "white" : "#0f172a",
+                }}
+              >
+                Regular Round
+              </button>
+
+              <button
+                onClick={() => setRoundType("final")}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                  background: roundType === "final" ? "#7c3aed" : "#f1f5f9",
+                  color: roundType === "final" ? "white" : "#0f172a",
+                }}
+              >
+                🏆 Final Round
+              </button>
+            </div>
+
+            {roundType !== "final" && (
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  marginTop: 20,
+                  flexWrap: "wrap",
+                }}
+              >
+                {[1, 2, 3, 4, 5, 6].map((num) => (
+                  <button
+                    key={num}
+                    onClick={() => setNewRoundTrack(num)}
+                    style={{
+                      padding: "10px 16px",
+                      borderRadius: "8px",
+                      border: "none",
+                      cursor: "pointer",
+                      fontWeight: "600",
+                      background: newRoundTrack === num ? "#0f172a" : "#f1f5f9",
+                      color: newRoundTrack === num ? "white" : "#0f172a",
+                    }}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10, marginTop: 25 }}>
+              <button style={exportGreen} onClick={tambahRound}>
+                Buat Round
+              </button>
+
+              <button
+                style={thermalCloseBtn}
+                onClick={() => setShowRoundModal(false)}
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+// 🔥 STYLE KHUSUS REACT SELECT FINAL
+const selectFinalStyles = {
+  menu: (base) => ({
+    ...base,
+    zIndex: 9999,
+  }),
+  menuList: (base) => ({
+    ...base,
+    maxHeight: 150,
+    overflowY: "auto",
+  }),
+};
 
 /* ================= STYLES ================= */
 const pageWrapper = { display: "flex", flexDirection: "column", gap: "30px" };
@@ -1046,29 +1207,24 @@ const tableCard = {
   padding: "20px",
   borderRadius: "14px",
   boxShadow: "0 5px 20px rgba(0,0,0,0.05)",
-  overflowX: "auto",
-};
-const tableStyle = {
   width: "100%",
-  borderCollapse: "collapse",
-  tableLayout: "fixed", // 🔥 INI YANG PENTING
 };
 
 const thStyle = {
-  padding: "12px",
+  padding: "8px",
   background: "#f1f5f9",
   border: "1px solid #e2e8f0",
-  width: "100px", // 🔥 FIX WIDTH
+  fontSize: "12px",
 };
 
 const tdStyle = {
-  padding: "10px",
+  padding: "6px",
   border: "1px solid #f1f5f9",
   textAlign: "center",
-  width: "100px", // 🔥 FIX WIDTH
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
+  fontSize: "12px", // 🔥 penting biar muat banyak kolom
 };
 
 const modalOverlay = {
@@ -1205,4 +1361,44 @@ const activeTrackButton = {
   background: "#0f172a",
   color: "white",
   boxShadow: "0 4px 12px rgba(15,23,42,0.25)",
+};
+const finalWrapper = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: "30px",
+};
+
+const finalBox = {
+  border: "2px solid black",
+  padding: "15px",
+  position: "relative",
+  overflow: "visible", // 🔥 WAJIB
+  marginBottom: "120px", // 🔥 kasih ruang dropdown
+};
+
+const finalHeader = {
+  fontWeight: "bold",
+  textAlign: "center",
+  color: "red",
+  fontSize: "18px",
+  marginBottom: "10px",
+};
+
+const finalRow = {
+  display: "flex",
+  border: "1px solid black",
+};
+
+const finalLeft = {
+  width: "60px",
+  background: "red",
+  color: "white",
+  textAlign: "center",
+  padding: "6px",
+  fontWeight: "bold",
+};
+
+const finalRight = {
+  flex: 1,
+  padding: "6px",
 };

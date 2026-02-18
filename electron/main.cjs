@@ -101,6 +101,23 @@ function initDatabase(dbName) {
     )
   `,
   ).run();
+
+  /* =========================
+   FINAL ROUND TABLE (TAMBAHAN SAJA)
+========================= */
+  db.prepare(
+    `
+  CREATE TABLE IF NOT EXISTS final_slots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    roundId INTEGER,
+    groupKey TEXT,
+    laneKey TEXT,
+    teamName TEXT,
+    UNIQUE(roundId, groupKey, laneKey),
+    FOREIGN KEY(roundId) REFERENCES rounds(id) ON DELETE CASCADE
+  )
+`,
+  ).run();
 }
 
 /* =========================
@@ -172,6 +189,17 @@ function createDisplayWindow() {
 
 app.whenReady().then(() => {
   initAuthDatabase();
+
+  // 🔥 AUTO LOAD EVENT DATABASE (TAMBAHAN SAJA)
+  const folder = app.getPath("userData");
+  const files = fs.readdirSync(folder);
+  const dbFiles = files.filter(
+    (file) => file.endsWith(".db") && file !== "master.db",
+  );
+
+  if (dbFiles.length > 0) {
+    initDatabase(dbFiles[0]); // load DB pertama yang ada
+  }
 
   session.defaultSession.setPermissionRequestHandler(
     (webContents, permission, callback) => {
@@ -249,11 +277,11 @@ ipcMain.handle("add-player", (event, { teamId, nama }) => {
     const player = db
       .prepare(
         `
-        SELECT players.*, teams.namaTim
-        FROM players
-        JOIN teams ON players.teamId = teams.id
-        WHERE players.id = ?
-      `,
+      SELECT players.*, teams.namaTim
+      FROM players
+      JOIN teams ON players.teamId = teams.id
+      WHERE players.id = ?
+    `,
       )
       .get(playerId);
 
@@ -270,11 +298,11 @@ ipcMain.handle("find-player", (event, barcode) => {
     db
       .prepare(
         `
-      SELECT players.*, teams.namaTim
-      FROM players
-      JOIN teams ON players.teamId = teams.id
-      WHERE players.barcode = ?
-    `,
+    SELECT players.*, teams.namaTim
+    FROM players
+    JOIN teams ON players.teamId = teams.id
+    WHERE players.barcode = ?
+  `,
       )
       .get(barcode.trim()) || null
   );
@@ -321,10 +349,6 @@ ipcMain.handle("delete-round", (event, id) => {
   return { success: true };
 });
 
-/* =========================
-   SAVE SLOT
-========================= */
-
 ipcMain.handle("save-slot", (event, data) => {
   if (!db) return { success: false };
 
@@ -340,29 +364,6 @@ ipcMain.handle("save-slot", (event, data) => {
 
   return { success: true };
 });
-
-/* =========================
-   DELETE SLOT  ✅ ADDED
-========================= */
-
-ipcMain.handle("delete-slot", (event, data) => {
-  if (!db) return { success: false };
-
-  const { roundId, rowIndex, columnKey } = data;
-
-  db.prepare(
-    `
-    DELETE FROM round_slots
-    WHERE roundId = ? AND rowIndex = ? AND columnKey = ?
-  `,
-  ).run(roundId, rowIndex, columnKey);
-
-  return { success: true };
-});
-
-/* =========================
-   GET ROUND DATA
-========================= */
 
 ipcMain.handle("get-round-data", (event, roundId) => {
   if (!db) return [];
@@ -382,6 +383,40 @@ ipcMain.handle("get-round-data", (event, roundId) => {
     JOIN teams ON players.teamId = teams.id
     WHERE round_slots.roundId = ?
     ORDER BY round_slots.rowIndex
+  `,
+    )
+    .all(roundId);
+});
+
+/* =========================
+   FINAL ROUND SAVE (TAMBAHAN SAJA)
+========================= */
+
+ipcMain.handle("save-final-slot", (event, data) => {
+  if (!db) return { success: false };
+
+  const { roundId, groupKey, laneKey, teamName } = data;
+
+  db.prepare(
+    `
+    INSERT OR REPLACE INTO final_slots
+    (roundId, groupKey, laneKey, teamName)
+    VALUES (?, ?, ?, ?)
+  `,
+  ).run(roundId, groupKey, laneKey, teamName);
+
+  return { success: true };
+});
+
+ipcMain.handle("get-final-slots", (event, roundId) => {
+  if (!db) return [];
+
+  return db
+    .prepare(
+      `
+    SELECT groupKey, laneKey, teamName
+    FROM final_slots
+    WHERE roundId = ?
   `,
     )
     .all(roundId);
