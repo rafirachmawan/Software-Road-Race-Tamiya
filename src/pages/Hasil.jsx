@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
-import jsPDF from "jspdf";
+
 import "jspdf-autotable";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 
@@ -279,11 +279,23 @@ export default function Hasil() {
 
   /* ================= EXPORT ================= */
   const exportExcel = () => {
+    if (!roundAktif) {
+      alert("Round belum dipilih");
+      return;
+    }
+
+    if (!roundAktif.grid || roundAktif.grid.length === 0) {
+      alert("Data masih kosong");
+      return;
+    }
+
     const data = roundAktif.grid.map((row) => {
       const rowData = { NO: row.no };
+
       columns.forEach((col) => {
-        rowData[col] = row[col] || "";
+        rowData[col] = row[col]?.namaTim || "";
       });
+
       return rowData;
     });
 
@@ -291,34 +303,42 @@ export default function Hasil() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, roundAktif.nama);
 
-    const excelBuffer = XLSX.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
-    });
-
-    const blob = new Blob([excelBuffer], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
-
-    saveAs(blob, `${roundAktif.nama}.xlsx`);
+    // 🔥 langsung download file
+    XLSX.writeFile(workbook, `${roundAktif.nama}.xlsx`);
   };
 
   const exportPDF = () => {
-    const doc = new jsPDF("landscape");
+    if (!roundAktif) {
+      alert("Round belum dipilih");
+      return;
+    }
+
+    if (!roundAktif.grid || roundAktif.grid.length === 0) {
+      alert("Data masih kosong");
+      return;
+    }
+
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "pt",
+      format: "a4",
+    });
 
     const tableColumn = ["NO", ...columns];
+
     const tableRows = roundAktif.grid.map((row) => [
       row.no,
-      ...columns.map((col) => row[col] || ""),
+      ...columns.map((col) => row[col]?.namaTim || ""),
     ]);
 
-    doc.text(`Round Result - ${roundAktif.nama}`, 14, 15);
+    doc.text(`Round Result - ${roundAktif.nama}`, 40, 40);
 
-    doc.autoTable({
+    autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
-      startY: 20,
+      startY: 60,
       styles: { fontSize: 8 },
+      theme: "grid",
     });
 
     doc.save(`${roundAktif.nama}.pdf`);
@@ -392,6 +412,39 @@ export default function Hasil() {
     } else {
       setSelectedRound(null);
     }
+  };
+
+  /* ================= HAPUS SLOT ================= */
+  const hapusSlot = async () => {
+    if (!editTarget) return;
+
+    const { rowIndex, columnKey } = editTarget;
+
+    // 🔥 1. Update state frontend
+    const updatedRounds = rounds.map((r) => {
+      if (r.id === selectedRound) {
+        const newGrid = [...r.grid];
+
+        if (newGrid[rowIndex]) {
+          newGrid[rowIndex][columnKey] = null;
+        }
+
+        return { ...r, grid: newGrid };
+      }
+      return r;
+    });
+
+    setRounds(updatedRounds);
+
+    // 🔥 2. Hapus dari backend
+    await window.api.deleteSlot({
+      roundId: selectedRound,
+      rowIndex,
+      columnKey,
+    });
+
+    setEditTarget(null);
+    setShowKuponModal(false);
   };
 
   /* ================= TRACK COLOR GROUPING ================= */
@@ -590,24 +643,39 @@ export default function Hasil() {
                       cursor: row[col] ? "pointer" : "default",
                     }}
                     onClick={() => {
-                      if (!row[col]) return;
-
                       const rowIndex = row.no - 1;
 
-                      setEditTarget({
-                        rowIndex,
-                        columnKey: col,
-                      });
+                      // ==========================
+                      // JIKA SLOT SUDAH ADA ISI
+                      // ==========================
+                      if (row[col]) {
+                        setEditTarget({
+                          rowIndex,
+                          columnKey: col,
+                        });
 
-                      setKuponData({
-                        nama: row[col].nama,
-                        team: row[col].namaTim,
-                        round: selectedRound,
-                        track: row.no,
-                        lane: col,
-                      });
+                        setKuponData({
+                          nama: row[col].nama,
+                          team: row[col].namaTim,
+                          round: selectedRound,
+                          track: row.no,
+                          lane: col,
+                        });
 
-                      setShowKuponModal(true);
+                        setShowKuponModal(true);
+                      }
+                      // ==========================
+                      // JIKA SLOT KOSONG
+                      // ==========================
+                      else {
+                        setEditTarget({
+                          rowIndex,
+                          columnKey: col,
+                        });
+
+                        setShowScanModal(true);
+                        setTimeout(startCamera, 300);
+                      }
                     }}
                   >
                     {row[col] ? row[col].namaTim : "-"}
@@ -869,6 +937,21 @@ export default function Hasil() {
                 ✏ Edit Slot
               </button>
 
+              {/* 🗑 DELETE SLOT */}
+              <button
+                style={{
+                  ...thermalPrintBtn,
+                  background: "linear-gradient(135deg,#ef4444,#dc2626)",
+                  boxShadow: "0 4px 12px rgba(220,38,38,0.3)",
+                }}
+                onClick={() => {
+                  if (!confirm("Yakin ingin menghapus slot ini?")) return;
+                  hapusSlot();
+                }}
+              >
+                🗑 Delete Slot
+              </button>
+
               {/* CLOSE */}
               <button
                 style={thermalCloseBtn}
@@ -965,17 +1048,29 @@ const tableCard = {
   boxShadow: "0 5px 20px rgba(0,0,0,0.05)",
   overflowX: "auto",
 };
-const tableStyle = { width: "100%", borderCollapse: "collapse" };
+const tableStyle = {
+  width: "100%",
+  borderCollapse: "collapse",
+  tableLayout: "fixed", // 🔥 INI YANG PENTING
+};
+
 const thStyle = {
   padding: "12px",
   background: "#f1f5f9",
   border: "1px solid #e2e8f0",
+  width: "100px", // 🔥 FIX WIDTH
 };
+
 const tdStyle = {
   padding: "10px",
   border: "1px solid #f1f5f9",
   textAlign: "center",
+  width: "100px", // 🔥 FIX WIDTH
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
 };
+
 const modalOverlay = {
   position: "fixed",
   inset: 0,

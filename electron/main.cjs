@@ -56,7 +56,6 @@ function initDatabase(dbName) {
   db = new Database(dbPath);
   db.pragma("foreign_keys = ON");
 
-  /* TEAMS */
   db.prepare(
     `
     CREATE TABLE IF NOT EXISTS teams (
@@ -66,7 +65,6 @@ function initDatabase(dbName) {
   `,
   ).run();
 
-  /* PLAYERS */
   db.prepare(
     `
     CREATE TABLE IF NOT EXISTS players (
@@ -79,7 +77,6 @@ function initDatabase(dbName) {
   `,
   ).run();
 
-  /* ROUNDS */
   db.prepare(
     `
     CREATE TABLE IF NOT EXISTS rounds (
@@ -90,7 +87,6 @@ function initDatabase(dbName) {
   `,
   ).run();
 
-  /* ROUND SLOTS */
   db.prepare(
     `
     CREATE TABLE IF NOT EXISTS round_slots (
@@ -122,14 +118,13 @@ ipcMain.handle("create-database", (event, name) => {
   const dbName = `${cleanName}.db`;
 
   if (db) db.close();
-
   initDatabase(dbName);
+
   return { success: true };
 });
 
 ipcMain.handle("switch-database", (event, dbName) => {
   if (db) db.close();
-
   initDatabase(dbName);
   return { success: true };
 });
@@ -176,7 +171,7 @@ function createDisplayWindow() {
 ========================= */
 
 app.whenReady().then(() => {
-  initAuthDatabase(); // 🔐 Login selalu siap
+  initAuthDatabase();
 
   session.defaultSession.setPermissionRequestHandler(
     (webContents, permission, callback) => {
@@ -189,7 +184,7 @@ app.whenReady().then(() => {
 });
 
 /* =========================
-   LOGIN (PAKAI MASTER DB)
+   LOGIN
 ========================= */
 
 ipcMain.handle("login", (event, { username, password }) => {
@@ -207,7 +202,7 @@ ipcMain.handle("login", (event, { username, password }) => {
 });
 
 /* =========================
-   LOGIKA EVENT (AMAN)
+   LOGIKA EVENT
 ========================= */
 
 ipcMain.handle("get-teams", () => {
@@ -275,11 +270,11 @@ ipcMain.handle("find-player", (event, barcode) => {
     db
       .prepare(
         `
-        SELECT players.*, teams.namaTim
-        FROM players
-        JOIN teams ON players.teamId = teams.id
-        WHERE players.barcode = ?
-      `,
+      SELECT players.*, teams.namaTim
+      FROM players
+      JOIN teams ON players.teamId = teams.id
+      WHERE players.barcode = ?
+    `,
       )
       .get(barcode.trim()) || null
   );
@@ -326,6 +321,10 @@ ipcMain.handle("delete-round", (event, id) => {
   return { success: true };
 });
 
+/* =========================
+   SAVE SLOT
+========================= */
+
 ipcMain.handle("save-slot", (event, data) => {
   if (!db) return { success: false };
 
@@ -341,6 +340,29 @@ ipcMain.handle("save-slot", (event, data) => {
 
   return { success: true };
 });
+
+/* =========================
+   DELETE SLOT  ✅ ADDED
+========================= */
+
+ipcMain.handle("delete-slot", (event, data) => {
+  if (!db) return { success: false };
+
+  const { roundId, rowIndex, columnKey } = data;
+
+  db.prepare(
+    `
+    DELETE FROM round_slots
+    WHERE roundId = ? AND rowIndex = ? AND columnKey = ?
+  `,
+  ).run(roundId, rowIndex, columnKey);
+
+  return { success: true };
+});
+
+/* =========================
+   GET ROUND DATA
+========================= */
 
 ipcMain.handle("get-round-data", (event, roundId) => {
   if (!db) return [];

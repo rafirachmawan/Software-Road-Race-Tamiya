@@ -17,7 +17,7 @@ export default function Dashboard() {
     const dbList = await window.api.getDatabases();
     setDatabases(dbList);
 
-    // 🔥 Ambil database aktif dari backend
+    // Coba ambil database aktif dari backend
     if (window.api?.getCurrentDatabase) {
       const activeDb = await window.api.getCurrentDatabase();
 
@@ -27,10 +27,9 @@ export default function Dashboard() {
       }
     }
 
-    // fallback kalau belum ada active db
-    if (dbList.length > 0) {
-      setSelectedDb(dbList[0]);
-    }
+    // ❌ HAPUS fallback auto select
+    // Biarkan null supaya dropdown default ke "Pilih Event"
+    setSelectedDb(null);
   };
 
   const handleCreateDatabase = async () => {
