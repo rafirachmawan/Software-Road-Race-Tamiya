@@ -34,6 +34,10 @@ contextBridge.exposeInMainWorld("api", {
   deleteRound: (id) => ipcRenderer.invoke("delete-round", id),
 
   saveSlot: (data) => ipcRenderer.invoke("save-slot", data),
+
+  // 🔥 TAMBAHKAN DI SINI
+  deleteSlot: (data) => ipcRenderer.invoke("delete-slot", data),
+
   getRoundData: (roundId) => ipcRenderer.invoke("get-round-data", roundId),
 
   /* ================= FINAL ROUND (TAMBAHAN SAJA) ================= */

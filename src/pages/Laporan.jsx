@@ -1,41 +1,90 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Laporan({ teams = [] }) {
-  /* ================= DUMMY ROUND ================= */
-  const rounds = [
-    { id: 2, nama: "Round 2" },
-    { id: 3, nama: "Round 3" },
-    { id: 4, nama: "Final Round" },
-  ];
+  const [rounds, setRounds] = useState([]); // 🔥 TAMBAHAN
+  const [selectedRound, setSelectedRound] = useState(null); // 🔥 GANTI default 2
 
-  const [selectedRound, setSelectedRound] = useState(2);
+  const [bestTeam, setBestTeam] = useState([]);
+  const [bestPlayer, setBestPlayer] = useState([]);
 
-  /* ================= DUMMY DATA ================= */
-  const totalPeserta = teams.flatMap((t) => t.pemain).length;
-  const totalPoin = 120;
-  const rataRata = totalPeserta ? Math.round(totalPoin / totalPeserta) : 0;
+  /* ================= LOAD ROUNDS DARI DB ================= */
+  const loadRounds = async () => {
+    const data = await window.api.getRounds();
 
-  const bestTeamDummy = [
-    { id: 1, team: "Dream Toys", race: 15 },
-    { id: 2, team: "Doraemon", race: 13 },
-    { id: 3, team: "Cangcut", race: 11 },
-  ];
+    if (data && data.length > 0) {
+      setRounds(data);
+      setSelectedRound(data[0].id); // otomatis pilih round pertama
+    } else {
+      setRounds([]);
+      setSelectedRound(null);
+    }
+  };
 
-  const bestPlayerDummy = [
-    { id: 1, nama: "Rafi", poin: 25 },
-    { id: 2, nama: "Budi", poin: 20 },
-    { id: 3, nama: "Andi", poin: 18 },
-  ];
+  /* ================= LOAD REPORT ================= */
+  const loadRoundReport = async () => {
+    const slots = await window.api.getRoundData(selectedRound);
+
+    console.log("SLOTS:", slots);
+
+    if (!slots || slots.length === 0) {
+      setBestTeam([]);
+      setBestPlayer([]);
+      return;
+    }
+
+    const teamCounter = {};
+    const playerCounter = {};
+
+    slots.forEach((slot) => {
+      if (slot.namaTim) {
+        teamCounter[slot.namaTim] = (teamCounter[slot.namaTim] || 0) + 1;
+      }
+
+      if (slot.nama) {
+        playerCounter[slot.nama] = (playerCounter[slot.nama] || 0) + 1;
+      }
+    });
+
+    /* ================= SORT TEAM ================= */
+    const sortedTeam = Object.entries(teamCounter)
+      .map(([team, race]) => ({ team, race }))
+      .sort((a, b) => {
+        if (b.race !== a.race) return b.race - a.race;
+        return a.team.localeCompare(b.team); // tie breaker
+      })
+      .slice(0, 3);
+
+    /* ================= SORT PLAYER ================= */
+    const sortedPlayer = Object.entries(playerCounter)
+      .map(([nama, race]) => ({ nama, race }))
+      .sort((a, b) => {
+        if (b.race !== a.race) return b.race - a.race;
+        return a.nama.localeCompare(b.nama); // tie breaker
+      })
+      .slice(0, 3);
+
+    setBestTeam(sortedTeam);
+    setBestPlayer(sortedPlayer);
+  };
+
+  useEffect(() => {
+    loadRounds(); // 🔥 load rounds saat pertama buka halaman
+  }, []);
+
+  useEffect(() => {
+    if (selectedRound) {
+      loadRoundReport();
+    }
+  }, [selectedRound]);
 
   return (
     <div style={pageStyle}>
-      {/* HEADER */}
       <div style={headerStyle}>
         <div>
           <h1 style={{ margin: 0 }}>🏆 Laporan Hasil Akhir</h1>
           <p style={subText}>
             Rekapitulasi hasil -{" "}
-            {rounds.find((r) => r.id === selectedRound)?.nama}
+            {rounds.find((r) => r.id === selectedRound)?.nama || "-"}
           </p>
         </div>
 
@@ -45,13 +94,12 @@ export default function Laporan({ teams = [] }) {
         </div>
       </div>
 
-      {/* ROUND SELECT (FIXED & PROFESSIONAL) */}
       <div style={roundCard}>
         <div style={roundInner}>
           <div>
             <p style={roundLabel}>Pilih Round</p>
             <select
-              value={selectedRound}
+              value={selectedRound || ""}
               onChange={(e) => setSelectedRound(Number(e.target.value))}
               style={selectPro}
             >
@@ -65,14 +113,6 @@ export default function Laporan({ teams = [] }) {
         </div>
       </div>
 
-      {/* SUMMARY */}
-      <div style={summaryContainer}>
-        <SummaryCard title="Total Peserta" value={totalPeserta} />
-        <SummaryCard title="Total Poin" value={totalPoin} />
-        <SummaryCard title="Rata-rata Poin" value={rataRata} />
-      </div>
-
-      {/* BEST SECTION */}
       <div style={bestWrapper}>
         {/* BEST TEAM */}
         <div style={proCard}>
@@ -90,8 +130,8 @@ export default function Laporan({ teams = [] }) {
               </tr>
             </thead>
             <tbody>
-              {bestTeamDummy.map((item, index) => (
-                <tr key={item.id}>
+              {bestTeam.map((item, index) => (
+                <tr key={index}>
                   <td style={td}>{index + 1}</td>
                   <td style={td}>{item.team}</td>
                   <td style={tdRight}>{item.race}</td>
@@ -117,11 +157,11 @@ export default function Laporan({ teams = [] }) {
               </tr>
             </thead>
             <tbody>
-              {bestPlayerDummy.map((item, index) => (
-                <tr key={item.id}>
+              {bestPlayer.map((item, index) => (
+                <tr key={index}>
                   <td style={td}>{index + 1}</td>
                   <td style={td}>{item.nama}</td>
-                  <td style={tdRight}>{item.poin}</td>
+                  <td style={tdRight}>{item.race}</td>
                 </tr>
               ))}
             </tbody>
@@ -133,7 +173,6 @@ export default function Laporan({ teams = [] }) {
 }
 
 /* ================= COMPONENT ================= */
-
 function SummaryCard({ title, value }) {
   return (
     <div style={summaryCard}>
@@ -190,21 +229,6 @@ const selectPro = {
   fontSize: "14px",
   outline: "none",
   cursor: "pointer",
-};
-
-/* SUMMARY */
-const summaryContainer = {
-  display: "flex",
-  gap: "25px",
-  flexWrap: "wrap",
-};
-
-const summaryCard = {
-  background: "white",
-  padding: "25px",
-  borderRadius: "14px",
-  boxShadow: "0 8px 25px rgba(0,0,0,0.08)",
-  minWidth: "220px",
 };
 
 /* BEST SECTION */

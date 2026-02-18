@@ -365,6 +365,23 @@ ipcMain.handle("save-slot", (event, data) => {
   return { success: true };
 });
 
+ipcMain.handle("delete-slot", (event, data) => {
+  if (!db) return { success: false };
+
+  const { roundId, rowIndex, columnKey } = data;
+
+  db.prepare(
+    `
+    DELETE FROM round_slots
+    WHERE roundId = ?
+    AND rowIndex = ?
+    AND columnKey = ?
+  `,
+  ).run(roundId, rowIndex, columnKey);
+
+  return { success: true };
+});
+
 ipcMain.handle("get-round-data", (event, roundId) => {
   if (!db) return [];
 

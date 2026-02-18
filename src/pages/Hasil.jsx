@@ -411,35 +411,33 @@ export default function Hasil() {
   const loadRoundData = async (roundId) => {
     const slots = await window.api.getRoundData(roundId);
 
-    if (!slots || slots.length === 0) return;
-
     const newGrid = [];
 
-    slots.forEach((slot) => {
-      const { rowIndex, columnKey, id, nama, barcode, namaTim } = slot;
+    if (slots && slots.length > 0) {
+      slots.forEach((slot) => {
+        const { rowIndex, columnKey, id, nama, barcode, namaTim } = slot;
 
-      if (!newGrid[rowIndex]) {
-        const newRow = { no: rowIndex + 1 };
-        columns.forEach((col) => (newRow[col] = null));
+        if (!newGrid[rowIndex]) {
+          const newRow = { no: rowIndex + 1 };
+          columns.forEach((col) => (newRow[col] = null));
+          newGrid[rowIndex] = newRow;
+        }
 
-        newGrid[rowIndex] = newRow;
-      }
+        newGrid[rowIndex][columnKey] = {
+          id,
+          nama,
+          barcode,
+          namaTim,
+        };
+      });
+    }
 
-      newGrid[rowIndex][columnKey] = {
-        id,
-        nama,
-        barcode,
-        namaTim,
-      };
-    });
-
+    // 🔥 PENTING: selalu update grid walaupun kosong
     setRounds((prev) =>
       prev.map((r) => (r.id === roundId ? { ...r, grid: newGrid } : r)),
     );
 
-    // hitung ulang currentIndex biar lanjut dari slot terakhir
-    const totalFilled = slots.length;
-    setCurrentIndex(totalFilled);
+    setCurrentIndex(slots ? slots.length : 0);
   };
 
   const loadFinalData = async () => {
