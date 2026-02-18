@@ -2,7 +2,9 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
-import "jspdf-autotable";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
 import { BrowserMultiFormatReader } from "@zxing/browser";
 
 import JsBarcode from "jsbarcode";
@@ -354,30 +356,38 @@ export default function Hasil() {
       return;
     }
 
-    const doc = new jsPDF({
-      orientation: "landscape",
-      unit: "pt",
-      format: "a4",
-    });
+    try {
+      const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "pt",
+        format: "a4",
+      });
 
-    const tableColumn = ["NO", ...columns];
+      const tableColumn = ["NO", ...columns];
 
-    const tableRows = roundAktif.grid.map((row) => [
-      row.no,
-      ...columns.map((col) => row[col]?.namaTim || ""),
-    ]);
+      const tableRows = roundAktif.grid.map((row) => {
+        return [row.no, ...columns.map((col) => row[col]?.namaTim || "-")];
+      });
 
-    doc.text(`Round Result - ${roundAktif.nama}`, 40, 40);
+      doc.setFontSize(14);
+      doc.text(`Round Result - ${roundAktif.nama}`, 40, 40);
 
-    autoTable(doc, {
-      head: [tableColumn],
-      body: tableRows,
-      startY: 60,
-      styles: { fontSize: 8 },
-      theme: "grid",
-    });
+      autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 60,
+        styles: {
+          fontSize: 8,
+          cellPadding: 3,
+        },
+        theme: "grid",
+      });
 
-    doc.save(`${roundAktif.nama}.pdf`);
+      doc.save(`${roundAktif.nama}.pdf`);
+    } catch (err) {
+      console.error("PDF ERROR:", err);
+      alert("Gagal export PDF, cek console");
+    }
   };
 
   useEffect(() => {
