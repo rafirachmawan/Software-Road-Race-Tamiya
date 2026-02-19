@@ -538,7 +538,6 @@ export default function Registrasi() {
                     onClick={() => openPlayerModal(p)}
                   >
                     <strong>{p.nama}</strong>
-                    <div style={barcodeText}>{p.barcode}</div>
                   </div>
                 </div>
 
