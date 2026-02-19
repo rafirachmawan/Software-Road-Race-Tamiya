@@ -90,16 +90,18 @@ function initDatabase(dbName) {
 
   db.prepare(
     `
-    CREATE TABLE IF NOT EXISTS round_slots (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      roundId INTEGER,
-      rowIndex INTEGER,
-      columnKey TEXT,
-      playerId INTEGER,
-      UNIQUE(roundId, rowIndex, columnKey),
-      FOREIGN KEY(roundId) REFERENCES rounds(id) ON DELETE CASCADE,
-      FOREIGN KEY(playerId) REFERENCES players(id) ON DELETE CASCADE
-    )
+  CREATE TABLE IF NOT EXISTS round_slots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  roundId INTEGER,
+  rowIndex INTEGER,
+  columnKey TEXT,
+  playerId INTEGER,
+  barcode TEXT,
+  UNIQUE(roundId, rowIndex, columnKey),
+  FOREIGN KEY(roundId) REFERENCES rounds(id) ON DELETE CASCADE,
+  FOREIGN KEY(playerId) REFERENCES players(id) ON DELETE CASCADE
+)
+
   `,
   ).run();
 
@@ -351,15 +353,14 @@ ipcMain.handle("delete-round", (event, id) => {
 ipcMain.handle("save-slot", (event, data) => {
   if (!db) return { success: false };
 
-  const { roundId, rowIndex, columnKey, playerId } = data;
-
+  const { roundId, rowIndex, columnKey, playerId, barcode } = data;
   db.prepare(
     `
-    INSERT OR REPLACE INTO round_slots
-    (roundId, rowIndex, columnKey, playerId)
-    VALUES (?, ?, ?, ?)
-  `,
-  ).run(roundId, rowIndex, columnKey, playerId);
+  INSERT OR REPLACE INTO round_slots
+  (roundId, rowIndex, columnKey, playerId, barcode)
+  VALUES (?, ?, ?, ?, ?)
+`,
+  ).run(roundId, rowIndex, columnKey, playerId, barcode);
 
   return { success: true };
 });
@@ -387,13 +388,15 @@ ipcMain.handle("get-round-data", (event, roundId) => {
   return db
     .prepare(
       `
-    SELECT 
-      round_slots.rowIndex,
-      round_slots.columnKey,
-      players.id,
-      players.nama,
-      players.barcode,
-      teams.namaTim
+  SELECT 
+  round_slots.rowIndex,
+  round_slots.columnKey,
+  players.id,
+  players.nama,
+  round_slots.barcode,
+
+  teams.namaTim
+
     FROM round_slots
     JOIN players ON round_slots.playerId = players.id
     JOIN teams ON players.teamId = teams.id

@@ -26,6 +26,11 @@ const alphabet = Array.from({ length: 26 }, (_, i) =>
   String.fromCharCode(65 + i),
 );
 
+const generateNewBarcode = (roundId, playerId) => {
+  const timestamp = Date.now().toString().slice(-6);
+  return `${roundId}${playerId}${timestamp}`;
+};
+
 export default function Hasil() {
   const [rounds, setRounds] = useState([]);
   const [selectedRound, setSelectedRound] = useState(null);
@@ -46,6 +51,24 @@ export default function Hasil() {
   const [newRoundTrack, setNewRoundTrack] = useState(2);
 
   const [roundType, setRoundType] = useState("regular");
+
+  // 🔥 LOGO THERMAL
+  const [thermalLogo, setThermalLogo] = useState(null);
+  const logoInputRef = useRef(null);
+
+  const [logoFileName, setLogoFileName] = useState("Belum ada file dipilih");
+
+  const handleRemoveLogo = () => {
+    setThermalLogo(null);
+    setLogoFileName("Belum ada file dipilih");
+
+    localStorage.removeItem("thermalLogo");
+    localStorage.removeItem("thermalLogoName");
+
+    if (logoInputRef.current) {
+      logoInputRef.current.value = "";
+    }
+  };
 
   // 🔥 LIST TEAM UNTUK FINAL DROPDOWN
   const [teamList, setTeamList] = useState([]);
@@ -137,6 +160,8 @@ export default function Hasil() {
       columnKey = columns[colIndex];
     }
 
+    const newBarcode = generateNewBarcode(selectedRound, player.id);
+
     const updatedRounds = rounds.map((r) => {
       if (r.id === selectedRound) {
         const newGrid = [...r.grid];
@@ -148,7 +173,10 @@ export default function Hasil() {
         }
 
         // 🔥 INI YANG MENGGANTI SLOT
-        newGrid[rowIndex][columnKey] = player;
+        newGrid[rowIndex][columnKey] = {
+          ...player,
+          barcode: newBarcode, // 🔥 BARCODE BARU
+        };
 
         return { ...r, grid: newGrid };
       }
@@ -162,6 +190,7 @@ export default function Hasil() {
       rowIndex,
       columnKey,
       playerId: player.id,
+      barcode: newBarcode, // 🔥 SIMPAN BARCODE BARU
     });
 
     setKuponData({
@@ -170,6 +199,7 @@ export default function Hasil() {
       round: selectedRound,
       track: rowIndex + 1,
       lane: columnKey,
+      barcode: newBarcode, // 🔥 KIRIM KE THERMAL
     });
 
     setShowKuponModal(true);
@@ -290,6 +320,26 @@ export default function Hasil() {
     }
   };
 
+  const handleLogoUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setLogoFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result;
+
+      setThermalLogo(base64);
+
+      // 🔥 SIMPAN KE LOCAL STORAGE
+      localStorage.setItem("thermalLogo", base64);
+      localStorage.setItem("thermalLogoName", file.name);
+    };
+
+    reader.readAsDataURL(file);
+  };
+
   /* ================= TAMBAH ROUND ================= */
   const tambahRound = async () => {
     let namaRound;
@@ -400,6 +450,19 @@ export default function Hasil() {
   };
 
   useEffect(() => {
+    const savedLogo = localStorage.getItem("thermalLogo");
+    const savedName = localStorage.getItem("thermalLogoName");
+
+    if (savedLogo) {
+      setThermalLogo(savedLogo);
+    }
+
+    if (savedName) {
+      setLogoFileName(savedName);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!selectedRound) return;
 
     const round = rounds.find((r) => r.id === selectedRound);
@@ -414,18 +477,16 @@ export default function Hasil() {
   }, [selectedRound]);
 
   useEffect(() => {
-    if (selectedPlayer && barcodeRef.current) {
-      JsBarcode(barcodeRef.current, selectedPlayer.barcode, {
+    if (kuponData?.barcode && barcodeRef.current) {
+      JsBarcode(barcodeRef.current, kuponData.barcode, {
         format: "CODE128",
-        width: 3,
-        height: 120,
-        displayValue: true,
-        fontSize: 22,
-        margin: 20,
-        background: "#ffffff",
+        width: 2,
+        height: 60,
+        margin: 0,
+        displayValue: false, // 🔥 TANPA ANGKA
       });
     }
-  }, [selectedPlayer]);
+  }, [kuponData]);
 
   const loadRoundData = async (roundId) => {
     const slots = await window.api.getRoundData(roundId);
@@ -794,6 +855,37 @@ export default function Hasil() {
         </div>
       </div>
 
+      {/* 🔥 CARD BARU UPLOAD LOGO */}
+      <div style={logoCard}>
+        <div style={logoCardTitle}>Upload Logo Thermal</div>
+
+        <div style={uploadLogoRow}>
+          <button
+            style={uploadLogoButton}
+            onClick={() => logoInputRef.current.click()}
+          >
+            🖼 Pilih Logo
+          </button>
+
+          <span style={uploadLogoText}>{logoFileName}</span>
+
+          {/* 🔥 TOMBOL HAPUS MUNCUL JIKA ADA LOGO */}
+          {thermalLogo && (
+            <button style={removeLogoButton} onClick={handleRemoveLogo}>
+              ✕
+            </button>
+          )}
+
+          <input
+            type="file"
+            accept="image/*"
+            ref={logoInputRef}
+            style={{ display: "none" }}
+            onChange={handleLogoUpload}
+          />
+        </div>
+      </div>
+
       {/* BUTTON SCAN */}
       <div style={inputCard}>
         <button
@@ -889,6 +981,7 @@ export default function Hasil() {
                           round: selectedRound,
                           track: row.no,
                           lane: col,
+                          barcode: player.barcode, // 🔥 TAMBAHKAN INI
                         });
 
                         setShowKuponModal(true);
@@ -952,9 +1045,14 @@ export default function Hasil() {
         <div style={modalOverlay}>
           <div style={thermalModalBox}>
             <div ref={thermalRef} style={thermalWrapper}>
-              <div style={thermalHeader}>
-                <div style={thermalTitle}>KUPON BABAK {kuponData.round}</div>
-              </div>
+              {/* 🔥 LOGO DI TENGAH ATAS */}
+              {thermalLogo && (
+                <div style={thermalLogoWrapper}>
+                  <img src={thermalLogo} alt="logo" style={thermalLogoStyle} />
+                </div>
+              )}
+
+              <div style={thermalTitle}>KUPON BABAK {kuponData.round}</div>
 
               <div style={thermalDivider} />
 
@@ -963,13 +1061,26 @@ export default function Hasil() {
 
               <div style={thermalDivider} />
 
-              <div style={thermalTrack}>
-                {kuponData.track} - {kuponData.lane}
+              <div style={thermalTrackBox}>
+                <div style={thermalTrackNumber}>{kuponData.track}</div>
+                <div style={thermalLane}>LANE {kuponData.lane}</div>
               </div>
 
               <div style={thermalDivider} />
 
-              <div style={thermalFooter}>Race System</div>
+              {/* 🔥 BARCODE */}
+              {kuponData.barcode && (
+                <div style={{ marginTop: "10px" }}>
+                  <svg
+                    ref={barcodeRef}
+                    style={{
+                      width: "200px",
+                      margin: "0 auto",
+                      display: "block",
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             <div style={thermalButtonWrapper}>
@@ -1284,9 +1395,23 @@ const thermalModalBox = {
 };
 
 const thermalWrapper = {
-  width: "240px", // cocok untuk 58mm
+  width: "240px",
   margin: "0 auto",
   fontFamily: "monospace",
+  textAlign: "center",
+  padding: "10px 0",
+};
+
+const thermalLogoWrapper = {
+  display: "flex",
+  justifyContent: "center",
+  marginBottom: "8px",
+};
+
+const thermalLogoStyle = {
+  maxWidth: "100px",
+  maxHeight: "60px",
+  objectFit: "contain",
 };
 
 const thermalHeader = {
@@ -1295,34 +1420,51 @@ const thermalHeader = {
 };
 
 const thermalTitle = {
-  fontSize: "18px",
+  fontSize: "16px",
+  fontWeight: "700",
   letterSpacing: "1px",
 };
 
 const thermalDivider = {
   borderTop: "1px dashed black",
-  margin: "10px 0",
+  margin: "8px 0",
 };
 
 const thermalName = {
   fontSize: "20px",
-  fontWeight: "bold",
-};
-
-const thermalTeam = {
-  fontSize: "14px",
+  fontWeight: "700",
   marginTop: "4px",
 };
 
+const thermalTeam = {
+  fontSize: "13px",
+  marginTop: "2px",
+  letterSpacing: "0.5px",
+};
+
+const thermalTrackBox = {
+  margin: "10px 0",
+};
+
+const thermalTrackNumber = {
+  fontSize: "32px",
+  fontWeight: "800",
+};
+
+const thermalLane = {
+  fontSize: "14px",
+  marginTop: "2px",
+};
+
+const thermalFooter = {
+  fontSize: "11px",
+  marginTop: "6px",
+  opacity: 0.7,
+};
 const thermalTrack = {
   fontSize: "28px",
   fontWeight: "bold",
   margin: "10px 0",
-};
-
-const thermalFooter = {
-  fontSize: "12px",
-  marginTop: "10px",
 };
 
 const thermalButtonWrapper = {
@@ -1419,4 +1561,63 @@ const finalLeft = {
 const finalRight = {
   flex: 1,
   padding: "6px",
+};
+
+const uploadLogoWrapper = {
+  marginTop: "15px",
+};
+
+const uploadLogoTitle = {
+  fontWeight: "600",
+  marginBottom: "8px",
+  fontSize: "14px",
+};
+
+const uploadLogoRow = {
+  display: "flex",
+  alignItems: "center",
+  gap: "12px",
+};
+
+const uploadLogoButton = {
+  padding: "10px 16px",
+  background: "linear-gradient(135deg,#2563eb,#1d4ed8)",
+  color: "white",
+  border: "none",
+  borderRadius: "10px",
+  cursor: "pointer",
+  fontWeight: "600",
+  fontSize: "14px",
+  boxShadow: "0 4px 12px rgba(37,99,235,0.3)",
+};
+
+const uploadLogoText = {
+  fontSize: "14px",
+  color: "#64748b",
+};
+
+const logoCard = {
+  background: "white",
+  padding: "20px",
+  borderRadius: "14px",
+  boxShadow: "0 5px 20px rgba(0,0,0,0.05)",
+};
+
+const logoCardTitle = {
+  fontWeight: "600",
+  marginBottom: "12px",
+  fontSize: "16px",
+};
+const removeLogoButton = {
+  background: "#ef4444",
+  color: "white",
+  border: "none",
+  borderRadius: "6px",
+  width: "28px",
+  height: "28px",
+  cursor: "pointer",
+  fontWeight: "bold",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
 };

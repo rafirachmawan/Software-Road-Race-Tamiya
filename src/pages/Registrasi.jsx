@@ -12,6 +12,10 @@ export default function Registrasi() {
   const [editNama, setEditNama] = useState("");
   const [layoutImage, setLayoutImage] = useState(null);
 
+  const [layoutFileName, setLayoutFileName] = useState(
+    "Belum ada file dipilih",
+  );
+
   const barcodeRef = useRef(null);
   const printRef = useRef(null);
   const fileInputRef = useRef(null); // ✅ TAMBAHAN BARU
@@ -35,6 +39,14 @@ export default function Registrasi() {
 
     setTeams(sorted);
   };
+
+  useEffect(() => {
+    const savedLayout = localStorage.getItem("registerLayout");
+    const savedName = localStorage.getItem("registerLayoutName");
+
+    if (savedLayout) setLayoutImage(savedLayout);
+    if (savedName) setLayoutFileName(savedName);
+  }, []);
 
   /* ================= RENDER BARCODE (FIXED) ================= */
   useEffect(() => {
@@ -372,9 +384,30 @@ export default function Registrasi() {
 
     const reader = new FileReader();
     reader.onload = () => {
-      setLayoutImage(reader.result);
+      const base64 = reader.result;
+
+      setLayoutImage(base64);
+      setLayoutFileName(file.name);
+
+      // 🔥 SIMPAN
+      localStorage.setItem("registerLayout", base64);
+      localStorage.setItem("registerLayoutName", file.name);
     };
+
     reader.readAsDataURL(file);
+  };
+
+  // 🔥 TARUH DI SINI (MASIH DI DALAM Registrasi())
+  const handleRemoveLayout = () => {
+    setLayoutImage(null);
+    setLayoutFileName("Belum ada file dipilih");
+
+    localStorage.removeItem("registerLayout");
+    localStorage.removeItem("registerLayoutName");
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   return (
@@ -446,11 +479,13 @@ export default function Registrasi() {
             📁 Pilih Layout
           </button>
 
-          <span style={fileNameText}>
-            {layoutImage
-              ? "✅ Layout berhasil dipilih"
-              : "Belum ada file dipilih"}
-          </span>
+          <span style={fileNameText}>{layoutFileName}</span>
+
+          {layoutImage && (
+            <button style={removeLayoutBtn} onClick={handleRemoveLayout}>
+              ✕
+            </button>
+          )}
         </div>
       </div>
 
@@ -799,6 +834,20 @@ const fileNameText = {
   fontWeight: "500",
 };
 
+const removeLayoutBtn = {
+  background: "#ef4444",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  width: "30px",
+  height: "30px",
+  cursor: "pointer",
+  fontWeight: "bold",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
 const style = document.createElement("style");
 style.innerHTML = `
 @media print {
@@ -868,5 +917,19 @@ style.innerHTML = `
     transform: translateX(-50%);
   }
 }
+  const removeLayoutBtn = {
+  background: "#ef4444",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  width: "30px",
+  height: "30px",
+  cursor: "pointer",
+  fontWeight: "bold",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
 `;
 document.head.appendChild(style);
