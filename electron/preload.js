@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld("api", {
   switchDatabase: (dbName) => ipcRenderer.invoke("switch-database", dbName),
   getCurrentDatabase: () => ipcRenderer.invoke("get-current-database"),
 
+  // ✅ TAMBAHKAN BARIS INI
+  clearCurrentDatabase: () => ipcRenderer.invoke("clear-current-database"),
+
   /* ================= AUTH ================= */
 
   login: (data) => ipcRenderer.invoke("login", data),

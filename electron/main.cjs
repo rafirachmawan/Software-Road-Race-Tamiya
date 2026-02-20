@@ -153,6 +153,17 @@ ipcMain.handle("get-current-database", () => {
   return currentDbName;
 });
 
+ipcMain.handle("clear-current-database", () => {
+  if (db) {
+    db.close();
+    db = null;
+  }
+
+  currentDbName = null;
+
+  return { success: true };
+});
+
 /* =========================
    WINDOW
 ========================= */
@@ -192,17 +203,6 @@ function createDisplayWindow() {
 
 app.whenReady().then(() => {
   initAuthDatabase();
-
-  // 🔥 AUTO LOAD EVENT DATABASE (TAMBAHAN SAJA)
-  const folder = app.getPath("userData");
-  const files = fs.readdirSync(folder);
-  const dbFiles = files.filter(
-    (file) => file.endsWith(".db") && file !== "master.db",
-  );
-
-  if (dbFiles.length > 0) {
-    initDatabase(dbFiles[0]); // load DB pertama yang ada
-  }
 
   session.defaultSession.setPermissionRequestHandler(
     (webContents, permission, callback) => {

@@ -6,6 +6,7 @@ export default function Dashboard() {
   const [newDbName, setNewDbName] = useState("");
 
   const rondeAktif = 1;
+  const systemStatus = selectedDb ? "READY" : "WAITING DATABASE";
 
   useEffect(() => {
     loadDatabases();
@@ -17,7 +18,7 @@ export default function Dashboard() {
     const dbList = await window.api.getDatabases();
     setDatabases(dbList);
 
-    // Coba ambil database aktif dari backend
+    // Ambil database aktif dari backend
     if (window.api?.getCurrentDatabase) {
       const activeDb = await window.api.getCurrentDatabase();
 
@@ -27,8 +28,7 @@ export default function Dashboard() {
       }
     }
 
-    // ❌ HAPUS fallback auto select
-    // Biarkan null supaya dropdown default ke "Pilih Event"
+    // Kalau tidak ada, kosong
     setSelectedDb(null);
   };
 
@@ -42,6 +42,17 @@ export default function Dashboard() {
   };
 
   const handleSwitchDatabase = async (dbName) => {
+    const handleSwitchDatabase = async (dbName) => {
+      if (dbName === "__NONE__") {
+        await window.api.clearCurrentDatabase();
+        setSelectedDb(null);
+        return;
+      }
+
+      await window.api.switchDatabase(dbName);
+      setSelectedDb(dbName);
+    };
+
     await window.api.switchDatabase(dbName);
     setSelectedDb(dbName);
   };
@@ -58,7 +69,7 @@ export default function Dashboard() {
         </div>
 
         <div style={liveBadge}>
-          {selectedDb ? selectedDb.replace(".db", "") : "No Event Selected"}
+          {selectedDb ? selectedDb.replace(".db", "") : "Pilih Database Dulu"}
         </div>
       </div>
 
@@ -68,13 +79,11 @@ export default function Dashboard() {
 
         <div style={dbRow}>
           <select
-            value={selectedDb || ""}
+            value={selectedDb ?? "__NONE__"}
             onChange={(e) => handleSwitchDatabase(e.target.value)}
             style={selectStyle}
           >
-            <option value="" disabled>
-              Pilih Event
-            </option>
+            <option value="__NONE__">Pilih Database</option>
 
             {databases.map((db) => (
               <option key={db} value={db}>
@@ -103,21 +112,25 @@ export default function Dashboard() {
           title="Kelola Round"
           description="Atur track, sesi & input hasil"
           color="#1d4ed8"
+          disabled={!selectedDb}
         />
         <ActionCard
-          title="Registrasi Peserta"
-          description="Tambah & kelola data racer"
-          color="#059669"
+          title="Kelola Round"
+          description="Atur track, sesi & input hasil"
+          color="#1d4ed8"
+          disabled={!selectedDb}
         />
         <ActionCard
-          title="Display Layar"
-          description="Tampilkan ke monitor utama"
-          color="#7c3aed"
+          title="Kelola Round"
+          description="Atur track, sesi & input hasil"
+          color="#1d4ed8"
+          disabled={!selectedDb}
         />
         <ActionCard
-          title="Laporan & Export"
-          description="Export PDF & Excel"
-          color="#b45309"
+          title="Kelola Round"
+          description="Atur track, sesi & input hasil"
+          color="#1d4ed8"
+          disabled={!selectedDb}
         />
       </div>
 
@@ -129,7 +142,11 @@ export default function Dashboard() {
           <StatusItem label="Database Aktif" value={selectedDb || "-"} />
           <StatusItem label="Round Aktif" value={`Round ${rondeAktif}`} />
           <StatusItem label="Mode" value="Eliminasi 3 → 1" />
-          <StatusItem label="Status Sistem" value="READY" highlight />
+          <StatusItem
+            label="Status Sistem"
+            value={systemStatus}
+            highlight={selectedDb}
+          />
         </div>
       </div>
     </div>
@@ -138,12 +155,14 @@ export default function Dashboard() {
 
 /* ================= COMPONENT ================= */
 
-function ActionCard({ title, description, color }) {
+function ActionCard({ title, description, color, disabled }) {
   return (
     <div
       style={{
         ...actionCardStyle,
         background: color,
+        opacity: disabled ? 0.5 : 1,
+        pointerEvents: disabled ? "none" : "auto",
       }}
     >
       <h3 style={{ margin: 0 }}>{title}</h3>
